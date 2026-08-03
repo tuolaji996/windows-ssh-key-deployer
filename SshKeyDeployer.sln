@@ -1,0 +1,43 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{11578528-812C-413B-8C7A-C3397BC0DD65}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SshKeyDeployer.Core", "src\SshKeyDeployer.Core\SshKeyDeployer.Core.csproj", "{FDFF3933-436F-439E-813E-737F13C0008A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SshKeyDeployer", "src\SshKeyDeployer\SshKeyDeployer.csproj", "{D36FB579-32BF-42A4-844A-83F0441DA109}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{25977F54-B27C-4316-960D-EE408B47D16A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SshKeyDeployer.SelfTest", "tests\SshKeyDeployer.SelfTest\SshKeyDeployer.SelfTest.csproj", "{BB247F22-D04A-49A7-B0D5-B40AFEE88CDC}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{FDFF3933-436F-439E-813E-737F13C0008A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FDFF3933-436F-439E-813E-737F13C0008A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FDFF3933-436F-439E-813E-737F13C0008A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FDFF3933-436F-439E-813E-737F13C0008A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D36FB579-32BF-42A4-844A-83F0441DA109}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D36FB579-32BF-42A4-844A-83F0441DA109}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D36FB579-32BF-42A4-844A-83F0441DA109}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D36FB579-32BF-42A4-844A-83F0441DA109}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BB247F22-D04A-49A7-B0D5-B40AFEE88CDC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BB247F22-D04A-49A7-B0D5-B40AFEE88CDC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BB247F22-D04A-49A7-B0D5-B40AFEE88CDC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BB247F22-D04A-49A7-B0D5-B40AFEE88CDC}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{FDFF3933-436F-439E-813E-737F13C0008A} = {11578528-812C-413B-8C7A-C3397BC0DD65}
+		{D36FB579-32BF-42A4-844A-83F0441DA109} = {11578528-812C-413B-8C7A-C3397BC0DD65}
+		{BB247F22-D04A-49A7-B0D5-B40AFEE88CDC} = {25977F54-B27C-4316-960D-EE408B47D16A}
+	EndGlobalSection
+EndGlobal
