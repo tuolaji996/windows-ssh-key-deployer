@@ -765,7 +765,7 @@ public partial class MainWindow : Window
         AboutDescriptionText.Text = T(
             "生成 Ed25519 密钥，安装 authorized_keys，安全修改 sshd 配置并验证密钥登录。",
             "Generates Ed25519 keys, installs authorized_keys, safely manages sshd configuration, and verifies key login.");
-        AboutVersionText.Text = T("版本 1.0.0 · 开源软件", "Version 1.0.0 · Open source software");
+        AboutVersionText.Text = T("版本 1.1.0 · 开源软件", "Version 1.1.0 · Open source software");
         AboutCopyrightPrefixRun.Text = T("版权所有 (c) 2026 tuolaji996 · ", "Copyright (c) 2026 tuolaji996 · ");
         FooterCopyrightPrefixRun.Text = T("版权所有 (c) 2026 tuolaji996 · ", "Copyright (c) 2026 tuolaji996 · ");
         SetHyperlinkText(AboutProjectHyperlink, T("GitHub 项目", "GitHub Project"));

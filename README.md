@@ -24,7 +24,7 @@ SSH Key Deployer is a Windows desktop application for creating an independent Ed
 - Installs the public key in `authorized_keys` and can enable or disable root login and password authentication.
 - Backs up affected SSH settings, checks `sshd` syntax and effective configuration, reloads SSH, and verifies a new key-based login. It attempts rollback when a deployment step fails.
 - Keeps the password in memory only for the current connection; it is not written to configuration files or logs.
-- Includes light and dark themes plus a local key-file view.
+- Includes Simplified Chinese and English UI switching, light and dark themes, and a local key-file view.
 
 ### Requirements
 
@@ -44,7 +44,7 @@ Get-FileHash .\SSH-Key-Deployer-*-win-x64.zip -Algorithm SHA256
 You can also install a selected release using the repository script:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Version 1.0.0
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Version 1.1.0
 ```
 
 By default, the application is installed under `%LOCALAPPDATA%\Programs\SSH Key Deployer` and does not require administrator privileges.
@@ -70,7 +70,7 @@ Install the .NET 8 SDK and Windows PowerShell 5.1 or PowerShell 7, then run:
 Create a self-contained, single-file `win-x64` package with:
 
 ```powershell
-.\release.ps1 -Version 1.0.0
+.\release.ps1 -Version 1.1.0
 ```
 
 The ZIP archive and checksum are written to `artifacts/`.
@@ -92,7 +92,7 @@ SSH Key Deployer 是一款 Windows 桌面工具，用于生成独立的 Ed25519 
 - 将公钥安装到 `authorized_keys`，并可选择开启或关闭 root 登录和密码登录。
 - 备份受影响的 SSH 设置，检查 `sshd` 语法和有效配置，重载 SSH，并验证新密钥能够登录；部署步骤失败时会尝试回滚。
 - 密码只用于当前连接，既不会写入配置，也不会记录到日志。
-- 提供亮色和深色主题，以及本机密钥文件查看入口。
+- 支持简体中文和英文界面切换，并提供亮色、深色主题和本机密钥文件查看入口。
 
 ### 系统要求
 
@@ -112,7 +112,7 @@ Get-FileHash .\SSH-Key-Deployer-*-win-x64.zip -Algorithm SHA256
 也可以使用仓库中的脚本安装指定版本：
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Version 1.0.0
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Version 1.1.0
 ```
 
 默认会安装到当前用户的 `%LOCALAPPDATA%\Programs\SSH Key Deployer`，不需要管理员权限。
@@ -138,7 +138,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Version 1
 生成自包含、单文件的 `win-x64` 发布包：
 
 ```powershell
-.\release.ps1 -Version 1.0.0
+.\release.ps1 -Version 1.1.0
 ```
 
 ZIP 包和哈希文件会输出到 `artifacts/`。

@@ -82,7 +82,7 @@
                         <TextBlock x:Name="NavStatusText" Grid.Column="1" Text="等待部署"
                                    Foreground="{DynamicResource MutedTextBrush}" FontSize="10"
                                    TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="2" Text="v1.0.0"
+                        <TextBlock Grid.Column="2" Text="v1.1.0"
                                    Foreground="{DynamicResource SubtleTextBrush}" FontSize="10"
                                    Margin="8,0,0,0" VerticalAlignment="Center" />
                     </Grid>
@@ -430,7 +430,7 @@
                                 <TextBlock x:Name="AboutSubtitleText" Text="Windows 到 Debian 的 SSH 密钥部署工具" Style="{StaticResource SectionTitleStyle}" />
                                 <TextBlock x:Name="AboutDescriptionText" Text="生成 Ed25519 密钥，安装 authorized_keys，安全修改 sshd 配置并验证密钥登录。"
                                            Style="{StaticResource PageLeadStyle}" Margin="0,6,0,16" />
-                                <TextBlock x:Name="AboutVersionText" Text="版本 1.0.0 · 开源软件" Foreground="{DynamicResource MutedTextBrush}" FontSize="12" />
+                                <TextBlock x:Name="AboutVersionText" Text="版本 1.1.0 · 开源软件" Foreground="{DynamicResource MutedTextBrush}" FontSize="12" />
                                 <TextBlock Margin="0,14,0,0" FontSize="12" Foreground="{DynamicResource MutedTextBrush}">
                                     <Run x:Name="AboutCopyrightPrefixRun" Text="Copyright (c) 2026 tuolaji996 · " />
                                     <Hyperlink x:Name="AboutProjectHyperlink"
