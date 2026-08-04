@@ -31,8 +31,8 @@
                            HorizontalAlignment="Center" VerticalAlignment="Center" />
             </Border>
             <StackPanel Grid.Column="1">
-                <TextBlock Text="确认这台服务器的主机指纹" FontSize="18" FontWeight="SemiBold" />
-                <TextBlock Text="首次连接前，请与服务器控制台中显示的指纹核对。"
+                <TextBlock x:Name="PromptTitleText" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+                <TextBlock x:Name="PromptLeadText"
                            Style="{StaticResource PageLeadStyle}" Margin="0,5,0,0" />
             </StackPanel>
         </Grid>
@@ -51,7 +51,7 @@
                         <ColumnDefinition Width="82" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="服务器" Style="{StaticResource FieldLabelStyle}" Margin="0" />
+                    <TextBlock x:Name="ServerLabelText" Style="{StaticResource FieldLabelStyle}" Margin="0" />
                     <TextBlock x:Name="HostValueText" Grid.Column="1" FontWeight="SemiBold" TextWrapping="Wrap" />
                 </Grid>
                 <Grid Grid.Row="1" Margin="0,10,0,0">
@@ -59,7 +59,7 @@
                         <ColumnDefinition Width="82" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="算法" Style="{StaticResource FieldLabelStyle}" Margin="0" />
+                    <TextBlock x:Name="AlgorithmLabelText" Style="{StaticResource FieldLabelStyle}" Margin="0" />
                     <TextBlock x:Name="AlgorithmValueText" Grid.Column="1" FontFamily="Cascadia Mono, Consolas" />
                 </Grid>
                 <Grid Grid.Row="2" Margin="0,10,0,0">
@@ -72,21 +72,19 @@
                     <TextBox x:Name="FingerprintValueTextBox" Grid.Column="1" IsReadOnly="True"
                              BorderThickness="0" Background="Transparent" Padding="0"
                              FontFamily="Cascadia Mono, Consolas" FontSize="12" TextWrapping="Wrap" />
-                    <Button Grid.Column="2" Tag="&#xE8C8;" Style="{StaticResource IconButtonStyle}"
-                            ToolTip="复制指纹" AutomationProperties.Name="复制指纹"
+                    <Button x:Name="CopyFingerprintButton" Grid.Column="2" Tag="&#xE8C8;" Style="{StaticResource IconButtonStyle}"
                             Click="CopyFingerprintButton_Click" />
                 </Grid>
             </Grid>
         </Border>
 
-        <TextBlock Grid.Row="2" Margin="0,14,0,0"
-                   Text="如果指纹与服务器控制台不一致，请选择取消。"
+        <TextBlock x:Name="MismatchWarningText" Grid.Row="2" Margin="0,14,0,0"
                    Foreground="{DynamicResource DangerBrush}" FontSize="12" />
 
         <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Content="取消" Style="{StaticResource SecondaryButton}" MinWidth="88"
+            <Button x:Name="CancelButton" Style="{StaticResource SecondaryButton}" MinWidth="88"
                     IsCancel="True" Click="CancelButton_Click" />
-            <Button Content="信任并继续" Tag="&#xE73E;" Style="{StaticResource PrimaryButton}"
+            <Button x:Name="ApproveButton" Tag="&#xE73E;" Style="{StaticResource PrimaryButton}"
                     MinWidth="122" Margin="10,0,0,0" IsDefault="True"
                     Click="ApproveButton_Click" />
         </StackPanel>

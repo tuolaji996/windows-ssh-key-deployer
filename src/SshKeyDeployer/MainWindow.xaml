@@ -42,7 +42,7 @@
                     </Border>
                     <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
                         <TextBlock Text="SSH Key" FontSize="14" FontWeight="SemiBold" />
-                        <TextBlock Text="一键部署工具" Foreground="{DynamicResource SubtleTextBrush}"
+                        <TextBlock x:Name="BrandSubtitleText" Text="一键部署工具" Foreground="{DynamicResource SubtleTextBrush}"
                                    FontSize="10" Margin="0,2,0,0" />
                     </StackPanel>
                 </Grid>
@@ -52,19 +52,19 @@
                                  GroupName="Navigation" Tag="&#xE768;"
                                  Style="{StaticResource NavigationItemStyle}"
                                  IsChecked="True" Checked="NavigationButton_Checked">
-                        <TextBlock Text="一键部署" />
+                        <TextBlock x:Name="DeployNavigationText" Text="一键部署" />
                     </RadioButton>
                     <RadioButton x:Name="KeysNavigationButton"
                                  GroupName="Navigation" Tag="&#xE8D7;"
                                  Style="{StaticResource NavigationItemStyle}"
                                  Checked="NavigationButton_Checked">
-                        <TextBlock Text="密钥文件" />
+                        <TextBlock x:Name="KeysNavigationText" Text="密钥文件" />
                     </RadioButton>
                     <RadioButton x:Name="AboutNavigationButton"
                                  GroupName="Navigation" Tag="&#xE946;"
                                  Style="{StaticResource NavigationItemStyle}"
                                  Checked="NavigationButton_Checked">
-                        <TextBlock Text="关于" />
+                        <TextBlock x:Name="AboutNavigationText" Text="关于" />
                     </RadioButton>
                 </StackPanel>
 
@@ -104,15 +104,21 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <TextBlock x:Name="PageTitleText" Text="一键部署" FontSize="21"
                                FontWeight="SemiBold" VerticalAlignment="Center" />
-                    <Button x:Name="ThemeButton" Grid.Column="1" Tag="&#xE708;"
+                    <Button x:Name="LanguageButton" Grid.Column="1" Content="EN"
+                            ToolTip="Switch to English"
+                            AutomationProperties.Name="Switch to English"
+                            Style="{StaticResource LanguageButtonStyle}"
+                            Margin="0,0,8,0" Click="LanguageButton_Click" />
+                    <Button x:Name="ThemeButton" Grid.Column="2" Tag="&#xE708;"
                             ToolTip="切换亮色 / 深色主题"
                             AutomationProperties.Name="切换主题"
                             Style="{StaticResource IconButtonStyle}"
                             Margin="0,0,10,0" Click="ThemeButton_Click" />
-                    <Border x:Name="HeaderStatusBadge" Grid.Column="2" CornerRadius="5" Padding="11,6"
+                    <Border x:Name="HeaderStatusBadge" Grid.Column="3" CornerRadius="5" Padding="11,6"
                             Background="{DynamicResource NeutralStatusBrush}"
                             VerticalAlignment="Center">
                         <TextBlock x:Name="HeaderStatusText" Text="就绪" Foreground="White"
@@ -134,7 +140,7 @@
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
-                        <TextBlock Grid.Row="0"
+                        <TextBlock x:Name="DeployLeadText" Grid.Row="0"
                                    Text="输入 Debian 服务器信息，生成独立 Ed25519 密钥并完成安装、配置校验和回连验证。"
                                    Style="{StaticResource PageLeadStyle}" Margin="0,0,0,16" />
 
@@ -154,7 +160,7 @@
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
-                                    <TextBlock Text="服务器连接" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,14" />
+                                    <TextBlock x:Name="ConnectionSectionTitleText" Text="服务器连接" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,14" />
                                     <Grid Grid.Row="1">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
@@ -162,11 +168,11 @@
                                             <ColumnDefinition Width="92" />
                                         </Grid.ColumnDefinitions>
                                         <StackPanel>
-                                            <TextBlock Text="IP 或域名" Style="{StaticResource FieldLabelStyle}" />
+                                            <TextBlock x:Name="HostLabelText" Text="IP 或域名" Style="{StaticResource FieldLabelStyle}" />
                                             <TextBox x:Name="HostTextBox" AutomationProperties.Name="服务器 IP 或域名" />
                                         </StackPanel>
                                         <StackPanel Grid.Column="2">
-                                            <TextBlock Text="端口" Style="{StaticResource FieldLabelStyle}" />
+                                            <TextBlock x:Name="PortLabelText" Text="端口" Style="{StaticResource FieldLabelStyle}" />
                                             <TextBox x:Name="PortTextBox" Text="22" AutomationProperties.Name="SSH 端口" />
                                         </StackPanel>
                                     </Grid>
@@ -177,12 +183,12 @@
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <StackPanel>
-                                            <TextBlock Text="账户" Style="{StaticResource FieldLabelStyle}" />
+                                            <TextBlock x:Name="AccountLabelText" Text="账户" Style="{StaticResource FieldLabelStyle}" />
                                             <TextBox x:Name="UserNameTextBox" Text="root"
                                                      AutomationProperties.Name="SSH 账户" />
                                         </StackPanel>
                                         <StackPanel Grid.Column="2">
-                                            <TextBlock Text="当前密码" Style="{StaticResource FieldLabelStyle}" />
+                                            <TextBlock x:Name="PasswordLabelText" Text="当前密码" Style="{StaticResource FieldLabelStyle}" />
                                             <PasswordBox x:Name="PasswordInput"
                                                          AutomationProperties.Name="SSH 密码" />
                                         </StackPanel>
@@ -201,7 +207,7 @@
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
-                                    <TextBlock Text="SSH 登录策略" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,13" />
+                                    <TextBlock x:Name="SshPolicySectionTitleText" Text="SSH 登录策略" Style="{StaticResource SectionTitleStyle}" Margin="0,0,0,13" />
 
                                     <Grid Grid.Row="1" Margin="0,0,0,13">
                                         <Grid.ColumnDefinitions>
@@ -209,8 +215,8 @@
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Margin="0,0,14,0">
-                                            <TextBlock Text="允许 root 登录" FontSize="13" FontWeight="SemiBold" />
-                                            <TextBlock Text="关闭后会写入 PermitRootLogin no" Style="{StaticResource PageLeadStyle}" FontSize="11" />
+                                            <TextBlock x:Name="RootLoginLabelText" Text="允许 root 登录" FontSize="13" FontWeight="SemiBold" />
+                                            <TextBlock x:Name="RootLoginDescriptionText" Text="关闭后会写入 PermitRootLogin no" Style="{StaticResource PageLeadStyle}" FontSize="11" />
                                         </StackPanel>
                                         <CheckBox x:Name="AllowRootLoginCheckBox" Grid.Column="1"
                                                   IsChecked="True" Style="{StaticResource SwitchStyle}"
@@ -225,8 +231,8 @@
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Margin="0,0,14,0">
-                                            <TextBlock Text="允许密码登录" FontSize="13" FontWeight="SemiBold" />
-                                            <TextBlock Text="建议确认密钥可用后再关闭" Style="{StaticResource PageLeadStyle}" FontSize="11" />
+                                            <TextBlock x:Name="PasswordLoginLabelText" Text="允许密码登录" FontSize="13" FontWeight="SemiBold" />
+                                            <TextBlock x:Name="PasswordLoginDescriptionText" Text="建议确认密钥可用后再关闭" Style="{StaticResource PageLeadStyle}" FontSize="11" />
                                         </StackPanel>
                                         <CheckBox x:Name="AllowPasswordLoginCheckBox" Grid.Column="1"
                                                   IsChecked="True" Style="{StaticResource SwitchStyle}"
@@ -235,7 +241,7 @@
 
                                     <Border Grid.Row="4" Margin="0,13,0,0" Padding="10"
                                             CornerRadius="5" Background="{DynamicResource WarningSurfaceBrush}">
-                                        <TextBlock Text="配置写入前会备份；语法或回连验证失败时自动恢复。"
+                                        <TextBlock x:Name="PolicyWarningText" Text="配置写入前会备份；语法或回连验证失败时自动恢复。"
                                                    Foreground="{DynamicResource WarningBrush}"
                                                    FontSize="11" TextWrapping="Wrap" />
                                     </Border>
@@ -258,8 +264,8 @@
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
                                     <StackPanel>
-                                        <TextBlock Text="密钥文件" Style="{StaticResource SectionTitleStyle}" />
-                                        <TextBlock Text="选择私钥保存位置；公钥会自动使用相同文件名并加上 .pub。"
+                                        <TextBlock x:Name="KeyFileSectionTitleText" Text="密钥文件" Style="{StaticResource SectionTitleStyle}" />
+                                        <TextBlock x:Name="KeyFileDescriptionText" Text="选择私钥保存位置；公钥会自动使用相同文件名并加上 .pub。"
                                                    Style="{StaticResource PageLeadStyle}" Margin="0,3,0,0" />
                                     </StackPanel>
                                     <TextBlock Grid.Column="1" Text="ED25519" Foreground="{DynamicResource AccentBrush}"
@@ -316,7 +322,7 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="部署进度" Style="{StaticResource SectionTitleStyle}" />
+                                    <TextBlock x:Name="DeploymentProgressTitleText" Text="部署进度" Style="{StaticResource SectionTitleStyle}" />
                                     <TextBlock x:Name="ProgressSummaryText" Grid.Column="1" Text="尚未开始"
                                                Foreground="{DynamicResource MutedTextBrush}" FontSize="12"
                                                VerticalAlignment="Center" />
@@ -334,31 +340,31 @@
                                         <Border x:Name="ValidateStepDot" Style="{StaticResource ProgressDotStyle}">
                                             <TextBlock Text="1" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                         </Border>
-                                        <TextBlock Text="检查输入" FontSize="11" Margin="0,6,0,0" />
+                                        <TextBlock x:Name="ValidateStepLabelText" Text="检查输入" FontSize="11" Margin="0,6,0,0" />
                                     </StackPanel>
                                     <StackPanel Grid.Column="1" HorizontalAlignment="Center">
                                         <Border x:Name="KeyStepDot" Style="{StaticResource ProgressDotStyle}">
                                             <TextBlock Text="2" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                         </Border>
-                                        <TextBlock Text="生成密钥" FontSize="11" Margin="0,6,0,0" />
+                                        <TextBlock x:Name="KeyStepLabelText" Text="生成密钥" FontSize="11" Margin="0,6,0,0" />
                                     </StackPanel>
                                     <StackPanel Grid.Column="2" HorizontalAlignment="Center">
                                         <Border x:Name="ConnectStepDot" Style="{StaticResource ProgressDotStyle}">
                                             <TextBlock Text="3" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                         </Border>
-                                        <TextBlock Text="连接服务器" FontSize="11" Margin="0,6,0,0" />
+                                        <TextBlock x:Name="ConnectStepLabelText" Text="连接服务器" FontSize="11" Margin="0,6,0,0" />
                                     </StackPanel>
                                     <StackPanel Grid.Column="3" HorizontalAlignment="Center">
                                         <Border x:Name="ConfigureStepDot" Style="{StaticResource ProgressDotStyle}">
                                             <TextBlock Text="4" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                         </Border>
-                                        <TextBlock Text="安装与配置" FontSize="11" Margin="0,6,0,0" />
+                                        <TextBlock x:Name="ConfigureStepLabelText" Text="安装与配置" FontSize="11" Margin="0,6,0,0" />
                                     </StackPanel>
                                     <StackPanel Grid.Column="4" HorizontalAlignment="Center">
                                         <Border x:Name="VerifyStepDot" Style="{StaticResource ProgressDotStyle}">
                                             <TextBlock Text="5" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                         </Border>
-                                        <TextBlock Text="密钥回连" FontSize="11" Margin="0,6,0,0" />
+                                        <TextBlock x:Name="VerifyStepLabelText" Text="密钥回连" FontSize="11" Margin="0,6,0,0" />
                                     </StackPanel>
                                 </Grid>
 
@@ -380,7 +386,7 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
-                        <TextBlock Text="查看本机密钥文件。私钥只应保留在你的 Windows 电脑上。"
+                        <TextBlock x:Name="KeysPageLeadText" Text="查看本机密钥文件。私钥只应保留在你的 Windows 电脑上。"
                                    Style="{StaticResource PageLeadStyle}" Margin="0,0,0,16" />
                         <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}"
                                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
@@ -392,19 +398,19 @@
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
-                                <TextBlock Text="当前密钥" Style="{StaticResource SectionTitleStyle}" />
+                                <TextBlock x:Name="CurrentKeysTitleText" Text="当前密钥" Style="{StaticResource SectionTitleStyle}" />
                                 <StackPanel Grid.Row="1" Margin="0,16,0,0">
-                                    <TextBlock Text="私钥" Style="{StaticResource FieldLabelStyle}" />
+                                    <TextBlock x:Name="PrivateKeyLabelText" Text="私钥" Style="{StaticResource FieldLabelStyle}" />
                                     <TextBox x:Name="PrivateKeyDisplayTextBox" IsReadOnly="True" />
                                 </StackPanel>
                                 <StackPanel Grid.Row="2" Margin="0,14,0,0">
-                                    <TextBlock Text="公钥" Style="{StaticResource FieldLabelStyle}" />
+                                    <TextBlock x:Name="PublicKeyLabelText" Text="公钥" Style="{StaticResource FieldLabelStyle}" />
                                     <TextBox x:Name="PublicKeyDisplayTextBox" IsReadOnly="True" />
                                 </StackPanel>
                                 <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-                                    <Button Content="打开文件夹" Tag="&#xE838;" Style="{StaticResource SecondaryButton}"
+                                    <Button x:Name="OpenKeyFolderButton" Content="打开文件夹" Tag="&#xE838;" Style="{StaticResource SecondaryButton}"
                                             Click="OpenKeyFolderButton_Click" />
-                                    <Button Content="复制公钥" Tag="&#xE8C8;" Style="{StaticResource PrimaryButton}"
+                                    <Button x:Name="CopyPublicKeyButton" Content="复制公钥" Tag="&#xE8C8;" Style="{StaticResource PrimaryButton}"
                                             Margin="10,0,0,0" Click="CopyPublicKeyButton_Click" />
                                 </StackPanel>
                             </Grid>
@@ -421,11 +427,19 @@
                                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                 CornerRadius="6" Padding="18">
                             <StackPanel>
-                                <TextBlock Text="Windows 到 Debian 的 SSH 密钥部署工具" Style="{StaticResource SectionTitleStyle}" />
-                                <TextBlock Text="生成 Ed25519 密钥，安装 authorized_keys，安全修改 sshd 配置并验证密钥登录。"
+                                <TextBlock x:Name="AboutSubtitleText" Text="Windows 到 Debian 的 SSH 密钥部署工具" Style="{StaticResource SectionTitleStyle}" />
+                                <TextBlock x:Name="AboutDescriptionText" Text="生成 Ed25519 密钥，安装 authorized_keys，安全修改 sshd 配置并验证密钥登录。"
                                            Style="{StaticResource PageLeadStyle}" Margin="0,6,0,16" />
-                                <TextBlock Text="版本 1.0.0 · 开源软件" Foreground="{DynamicResource MutedTextBrush}" FontSize="12" />
-                                <Button Content="打开 GitHub" Tag="&#xE774;" Style="{StaticResource SecondaryButton}"
+                                <TextBlock x:Name="AboutVersionText" Text="版本 1.0.0 · 开源软件" Foreground="{DynamicResource MutedTextBrush}" FontSize="12" />
+                                <TextBlock Margin="0,14,0,0" FontSize="12" Foreground="{DynamicResource MutedTextBrush}">
+                                    <Run x:Name="AboutCopyrightPrefixRun" Text="Copyright (c) 2026 tuolaji996 · " />
+                                    <Hyperlink x:Name="AboutProjectHyperlink"
+                                               NavigateUri="https://github.com/tuolaji996/windows-ssh-key-deployer"
+                                               RequestNavigate="ProjectLink_RequestNavigate"
+                                               Foreground="{DynamicResource AccentBrush}"
+                                               TextDecorations="None">GitHub Project</Hyperlink>
+                                </TextBlock>
+                                <Button x:Name="OpenGitHubButton" Content="打开 GitHub" Tag="&#xE774;" Style="{StaticResource SecondaryButton}"
                                         HorizontalAlignment="Left" Margin="0,16,0,0" Click="OpenGitHubButton_Click" />
                             </StackPanel>
                         </Border>
@@ -440,6 +454,7 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <TextBlock x:Name="FooterIcon" Text="&#xE946;" FontFamily="{StaticResource IconFont}"
                                Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center" />
@@ -448,6 +463,15 @@
                                Margin="8,0,0,0" VerticalAlignment="Center" />
                     <TextBlock Grid.Column="2" Text="Debian 12 / 13" Foreground="{DynamicResource SubtleTextBrush}"
                                FontSize="11" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="3" Margin="16,0,0,0" FontSize="11"
+                               Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center">
+                        <Run x:Name="FooterCopyrightPrefixRun" Text="Copyright (c) 2026 tuolaji996 · " />
+                        <Hyperlink x:Name="FooterProjectHyperlink"
+                                   NavigateUri="https://github.com/tuolaji996/windows-ssh-key-deployer"
+                                   RequestNavigate="ProjectLink_RequestNavigate"
+                                   Foreground="{DynamicResource AccentBrush}"
+                                   TextDecorations="None">GitHub Project</Hyperlink>
+                    </TextBlock>
                 </Grid>
             </Border>
         </Grid>
