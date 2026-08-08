@@ -48,3 +48,38 @@ jobs:
       - name: Run console self-tests
         shell: pwsh
         run: dotnet run --project .\tests\SshKeyDeployer.SelfTest\SshKeyDeployer.SelfTest.csproj --configuration Release --no-build --no-restore
+
+  macos-arm64-package:
+    name: macOS Apple Silicon package
+    runs-on: macos-14
+    timeout-minutes: 20
+
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Build and package macOS Apple Silicon app
+        shell: bash
+        run: |
+          version="$(sed -n 's:.*<VersionPrefix>\(.*\)</VersionPrefix>.*:\1:p' Directory.Build.props)"
+          test -n "$version"
+          ./scripts/package-macos.sh "$version"
+
+      - name: Upload macOS release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm64-release-assets
+          path: |
+            artifacts/SSH-Key-Deployer-v*-osx-arm64.zip
+            artifacts/SSH-Key-Deployer-v*-osx-arm64.zip.sha256
+          if-no-files-found: error
+          retention-days: 7

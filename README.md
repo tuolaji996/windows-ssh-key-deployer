@@ -15,11 +15,11 @@
 
 ## English
 
-SSH Key Deployer is a Windows desktop application for creating an independent Ed25519 SSH key pair and deploying it to Debian servers you own or are authorized to administer. It is designed for the common first-login workflow: connect with an account and password, install the public key, choose SSH login policies, validate the server configuration, and confirm that key login works.
+SSH Key Deployer is a Windows and macOS Apple Silicon desktop application for creating an independent Ed25519 SSH key pair and deploying it to Debian servers you own or are authorized to administer. It is designed for the common first-login workflow: connect with an account and password, install the public key, choose SSH login policies, validate the server configuration, and confirm that key login works.
 
 ### Features
 
-- Generates separate Ed25519 private and public key files on Windows and applies restrictive ACLs to the private key.
+- Generates separate Ed25519 private and public key files; Windows restricts the private-key ACL and macOS restricts it to owner read/write (`0600`).
 - Requests explicit approval of the SSH host-key fingerprint on first contact or when it changes.
 - Installs the public key in `authorized_keys` and can enable or disable root login and password authentication.
 - Backs up affected SSH settings, checks `sshd` syntax and effective configuration, reloads SSH, and verifies a new key-based login. It attempts rollback when a deployment step fails.
@@ -28,12 +28,12 @@ SSH Key Deployer is a Windows desktop application for creating an independent Ed
 
 ### Requirements
 
-- Windows 10 or Windows 11, x64.
-- Windows OpenSSH Client, including `ssh-keygen.exe`.
+- Windows 10 or Windows 11, x64; or macOS 12+ on Apple Silicon (M1 or later).
+- Windows OpenSSH Client, including `ssh-keygen.exe`; macOS uses the system `/usr/bin/ssh-keygen`.
 - A Debian 12 or Debian 13 server running OpenSSH Server.
 - An initial SSH account and password, plus root or `sudo` access when changing SSH policy.
 
-### Install
+### Install on Windows
 
 Download the `win-x64` ZIP and matching `.sha256` file from [Releases](https://github.com/tuolaji996/windows-ssh-key-deployer/releases/latest). Verify the checksum before extracting and running `SshKeyDeployer.exe`:
 
@@ -44,10 +44,22 @@ Get-FileHash .\SSH-Key-Deployer-*-win-x64.zip -Algorithm SHA256
 You can also install a selected release using the repository script:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Version 1.1.0
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Version 1.2.0
 ```
 
 By default, the application is installed under `%LOCALAPPDATA%\Programs\SSH Key Deployer` and does not require administrator privileges.
+
+### Install on macOS Apple Silicon
+
+Download the `osx-arm64` ZIP and matching `.sha256` file from [Releases](https://github.com/tuolaji996/windows-ssh-key-deployer/releases/latest), then verify and open the app:
+
+```bash
+shasum -a 256 SSH-Key-Deployer-*-osx-arm64.zip
+unzip SSH-Key-Deployer-*-osx-arm64.zip
+open "SSH Key Deployer.app"
+```
+
+The current macOS package is an unsigned technical preview because no Apple Developer signing/notarization credential is stored in this project. Gatekeeper may require an explicit confirmation in **System Settings → Privacy & Security**. Only do that after the SHA-256 matches the released sidecar file and you trust this project.
 
 ### Deploy a key
 
@@ -60,7 +72,7 @@ Use this application only for servers you own or have explicit permission to man
 
 ### Build from source
 
-Install the .NET 8 SDK and Windows PowerShell 5.1 or PowerShell 7, then run:
+Install the .NET 8 SDK. On Windows, use Windows PowerShell 5.1 or PowerShell 7:
 
 ```powershell
 .\build.ps1
@@ -70,10 +82,18 @@ Install the .NET 8 SDK and Windows PowerShell 5.1 or PowerShell 7, then run:
 Create a self-contained, single-file `win-x64` package with:
 
 ```powershell
-.\release.ps1 -Version 1.1.0
+.\release.ps1 -Version 1.2.0
 ```
 
 The ZIP archive and checksum are written to `artifacts/`.
+
+On macOS, build the self-contained Apple Silicon `.app` package with:
+
+```bash
+./scripts/package-macos.sh 1.2.0
+```
+
+The macOS ZIP and checksum are also written to `artifacts/`.
 
 ### Security and license
 
@@ -83,11 +103,11 @@ Report security concerns privately according to [SECURITY.md](SECURITY.md). This
 
 ## 简体中文
 
-SSH Key Deployer 是一款 Windows 桌面工具，用于生成独立的 Ed25519 SSH 密钥对，并部署到你拥有或获得明确授权管理的 Debian 服务器。它覆盖常见的首次登录流程：使用账户和密码连接、安装公钥、选择 SSH 登录策略、检查服务器配置，并验证密钥登录是否成功。
+SSH Key Deployer 是一款支持 Windows 和 macOS Apple Silicon 的桌面工具，用于生成独立的 Ed25519 SSH 密钥对，并部署到你拥有或获得明确授权管理的 Debian 服务器。它覆盖常见的首次登录流程：使用账户和密码连接、安装公钥、选择 SSH 登录策略、检查服务器配置，并验证密钥登录是否成功。
 
 ### 主要功能
 
-- 在 Windows 本机生成独立的 Ed25519 私钥和公钥文件，并收紧私钥 ACL 权限。
+- 在本机生成独立的 Ed25519 私钥和公钥文件；Windows 会收紧私钥 ACL，macOS 会将私钥限制为仅当前用户可读写（`0600`）。
 - 首次连接或主机密钥发生变化时，要求用户明确核对和确认 SSH 主机指纹。
 - 将公钥安装到 `authorized_keys`，并可选择开启或关闭 root 登录和密码登录。
 - 备份受影响的 SSH 设置，检查 `sshd` 语法和有效配置，重载 SSH，并验证新密钥能够登录；部署步骤失败时会尝试回滚。
@@ -96,12 +116,12 @@ SSH Key Deployer 是一款 Windows 桌面工具，用于生成独立的 Ed25519 
 
 ### 系统要求
 
-- Windows 10 或 Windows 11，x64。
-- 已安装 Windows OpenSSH Client，其中包含 `ssh-keygen.exe`。
+- Windows 10 或 Windows 11，x64；或搭载 Apple Silicon（M1 及以上）的 macOS 12+。
+- Windows 需要安装 Windows OpenSSH Client（含 `ssh-keygen.exe`）；macOS 使用系统自带的 `/usr/bin/ssh-keygen`。
 - 目标服务器为运行 OpenSSH Server 的 Debian 12 或 Debian 13。
 - 首次连接所需的账户和密码；修改 SSH 策略时还需要 root 或 `sudo` 权限。
 
-### 安装
+### Windows 安装
 
 从 [Releases](https://github.com/tuolaji996/windows-ssh-key-deployer/releases/latest) 下载 `win-x64` ZIP 压缩包及对应的 `.sha256` 文件。核对哈希后，解压并运行 `SshKeyDeployer.exe`：
 
@@ -112,10 +132,22 @@ Get-FileHash .\SSH-Key-Deployer-*-win-x64.zip -Algorithm SHA256
 也可以使用仓库中的脚本安装指定版本：
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Version 1.1.0
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Version 1.2.0
 ```
 
 默认会安装到当前用户的 `%LOCALAPPDATA%\Programs\SSH Key Deployer`，不需要管理员权限。
+
+### macOS Apple Silicon 安装
+
+从 [Releases](https://github.com/tuolaji996/windows-ssh-key-deployer/releases/latest) 下载 `osx-arm64` ZIP 压缩包及对应的 `.sha256` 文件，核对哈希后解压并打开：
+
+```bash
+shasum -a 256 SSH-Key-Deployer-*-osx-arm64.zip
+unzip SSH-Key-Deployer-*-osx-arm64.zip
+open "SSH Key Deployer.app"
+```
+
+当前 macOS 包是未签名的技术预览版：仓库中没有保存 Apple Developer 签名或公证凭据。Gatekeeper 可能要求你在 **系统设置 → 隐私与安全性** 中明确确认。只有在 SHA-256 与发布页的同名校验文件一致，并且你确认信任该项目时才这样做。
 
 ### 部署密钥
 
@@ -128,7 +160,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Version 1
 
 ### 从源码构建
 
-安装 .NET 8 SDK 和 Windows PowerShell 5.1 或 PowerShell 7，然后执行：
+安装 .NET 8 SDK。Windows 下使用 Windows PowerShell 5.1 或 PowerShell 7，然后执行：
 
 ```powershell
 .\build.ps1
@@ -138,10 +170,18 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Version 1
 生成自包含、单文件的 `win-x64` 发布包：
 
 ```powershell
-.\release.ps1 -Version 1.1.0
+.\release.ps1 -Version 1.2.0
 ```
 
 ZIP 包和哈希文件会输出到 `artifacts/`。
+
+macOS 下可使用下面的命令生成自包含的 Apple Silicon `.app` 包：
+
+```bash
+./scripts/package-macos.sh 1.2.0
+```
+
+macOS ZIP 包和哈希文件同样会输出到 `artifacts/`。
 
 ### 安全与许可证
 

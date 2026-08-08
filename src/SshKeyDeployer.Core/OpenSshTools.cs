@@ -94,7 +94,9 @@ internal sealed class OpenSshTools
                     standardErrorTask)
                 .ConfigureAwait(false);
             throw new KeyGenerationException(
-                "Windows OpenSSH ssh-keygen could not be executed. Install the OpenSSH Client optional feature and try again.",
+                OperatingSystem.IsWindows()
+                    ? "Windows OpenSSH ssh-keygen could not be executed. Install the OpenSSH Client optional feature and try again."
+                    : "OpenSSH ssh-keygen could not be executed. Install the OpenSSH client and try again.",
                 exception);
         }
     }
@@ -103,8 +105,17 @@ internal sealed class OpenSshTools
     {
         if (!OperatingSystem.IsWindows())
         {
-            throw new PlatformNotSupportedException(
-                "SSH key generation and Windows ACL protection require Windows.");
+            // Do not resolve ssh-keygen through PATH.  On Unix, /usr/bin is the
+            // system-owned location used by macOS (including Apple Silicon) and
+            // the supported Linux distributions.
+            const string unixOpenSsh = "/usr/bin/ssh-keygen";
+            if (!File.Exists(unixOpenSsh))
+            {
+                throw new KeyGenerationException(
+                    "The trusted /usr/bin/ssh-keygen executable was not found. Install the OpenSSH client and try again.");
+            }
+
+            return unixOpenSsh;
         }
 
         var systemDirectory = Environment.SystemDirectory;

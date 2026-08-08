@@ -204,17 +204,11 @@ static Task TestRemoteCommandSafetyAsync()
 
 static async Task TestKeyLifecycleAsync()
 {
-    if (!OperatingSystem.IsWindows())
-    {
-        Console.WriteLine("SKIP  Windows-only key lifecycle assertions");
-        return;
-    }
-
     var testDirectory = Path.Combine(
         Path.GetTempPath(),
         "ssh-key-deployer-selftest",
         Guid.NewGuid().ToString("N"));
-    var keyPath = Path.Combine(testDirectory, "selftest_ed25519");
+    var keyPath = Path.Combine(testDirectory, "keys", "selftest_ed25519");
 
     try
     {
@@ -229,7 +223,29 @@ static async Task TestKeyLifecycleAsync()
 
         var protector = new PrivateKeyAclProtector();
         Assert(protector.IsSecure(generated.PrivateKeyPath),
-            "Private-key ACL was not restricted to the current user and SYSTEM.");
+            OperatingSystem.IsWindows()
+                ? "Private-key ACL was not restricted to the current user and SYSTEM."
+                : "Private-key mode was not restricted to owner read/write.");
+
+        if (!OperatingSystem.IsWindows())
+        {
+            AssertEqual(
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute,
+                File.GetUnixFileMode(Path.GetDirectoryName(generated.PrivateKeyPath)!),
+                "A newly created private-key directory was not exactly 0700.");
+            AssertEqual(
+                UnixFileMode.UserRead | UnixFileMode.UserWrite,
+                File.GetUnixFileMode(generated.PrivateKeyPath),
+                "Private-key mode was not exactly 0600.");
+
+            var linkedPrivateKeyPath = Path.Combine(testDirectory, "linked_ed25519");
+            File.CreateSymbolicLink(linkedPrivateKeyPath, generated.PrivateKeyPath);
+            Assert(!protector.IsSecure(linkedPrivateKeyPath),
+                "A symbolic-link private key was accepted as secure.");
+            await AssertThrowsAsync<UnauthorizedAccessException>(
+                () => Task.Run(() => protector.Protect(linkedPrivateKeyPath)),
+                "A symbolic-link private key was protected instead of rejected.");
+        }
 
         var reused = await generator.ReadExistingAsync(keyPath);
         AssertEqual(generated.Sha256Fingerprint, reused.Sha256Fingerprint,

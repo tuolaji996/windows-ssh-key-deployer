@@ -27,18 +27,17 @@ public sealed class KeyGenerator
         string keyPath,
         CancellationToken cancellationToken = default)
     {
-        if (!OperatingSystem.IsWindows())
-        {
-            throw new PlatformNotSupportedException(
-                "SSH key generation and ACL protection require Windows.");
-        }
-
         var fullPath = ValidateNewKeyPath(keyPath);
         var publicKeyPath = fullPath + ".pub";
         var parentDirectory = Path.GetDirectoryName(fullPath)
             ?? throw new KeyGenerationException("Key path must have a parent directory.");
 
+        var parentDirectoryAlreadyExists = Directory.Exists(parentDirectory);
         Directory.CreateDirectory(parentDirectory);
+        if (!parentDirectoryAlreadyExists)
+        {
+            _aclProtector.ProtectDirectory(parentDirectory);
+        }
 
         if (File.Exists(fullPath) || File.Exists(publicKeyPath))
         {
@@ -55,6 +54,7 @@ public sealed class KeyGenerator
         var publicKeyPublished = false;
         try
         {
+            _aclProtector.ProtectDirectory(stagingDirectory);
             var result = await _openSshTools
                 .GenerateEd25519Async(stagedPrivateKeyPath, cancellationToken)
                 .ConfigureAwait(false);
@@ -98,7 +98,9 @@ public sealed class KeyGenerator
             catch (UnauthorizedAccessException exception)
             {
                 throw new KeyGenerationException(
-                    "Windows denied access while publishing the generated key.",
+                    OperatingSystem.IsWindows()
+                        ? "Windows denied access while publishing the generated key."
+                        : "The operating system denied access while publishing the generated key.",
                     exception);
             }
 
@@ -135,12 +137,6 @@ public sealed class KeyGenerator
         string keyPath,
         CancellationToken cancellationToken = default)
     {
-        if (!OperatingSystem.IsWindows())
-        {
-            throw new PlatformNotSupportedException(
-                "SSH key inspection and ACL protection require Windows.");
-        }
-
         var fullPath = ValidateExistingKeyPath(keyPath);
         var publicKeyPath = fullPath + ".pub";
         cancellationToken.ThrowIfCancellationRequested();
@@ -189,7 +185,9 @@ public sealed class KeyGenerator
         if (result.ExitCode != 0)
         {
             throw new KeyGenerationException(BuildFailureMessage(
-                "The private key could not be read by Windows OpenSSH. Only an unencrypted Ed25519 key is supported.",
+                OperatingSystem.IsWindows()
+                    ? "The private key could not be read by Windows OpenSSH. Only an unencrypted Ed25519 key is supported."
+                    : "The private key could not be read by OpenSSH. Only an unencrypted Ed25519 key is supported.",
                 result.StandardError));
         }
 

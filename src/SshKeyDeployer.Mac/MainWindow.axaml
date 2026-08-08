@@ -1,0 +1,96 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="SshKeyDeployer.Mac.MainWindow"
+        Width="920"
+        Height="780"
+        MinWidth="720"
+        MinHeight="640"
+        Title="SSH Key Deployer"
+        Closing="MainWindow_Closing">
+  <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="32" Spacing="18">
+      <Grid ColumnDefinitions="*,Auto,Auto">
+        <StackPanel Spacing="4">
+          <TextBlock x:Name="TitleText" FontSize="28" FontWeight="SemiBold" />
+          <TextBlock x:Name="SubtitleText" Opacity="0.72" TextWrapping="Wrap" />
+        </StackPanel>
+        <Button x:Name="LanguageButton" Grid.Column="1" Margin="8,0,0,0"
+                Click="LanguageButton_Click" />
+        <Button x:Name="ThemeButton" Grid.Column="2" Margin="8,0,0,0"
+                Click="ThemeButton_Click" />
+      </Grid>
+
+      <Border Padding="18" BorderThickness="1" CornerRadius="10" BorderBrush="#33000000">
+        <StackPanel Spacing="14">
+          <TextBlock x:Name="ConnectionSectionText" FontSize="18" FontWeight="SemiBold" />
+          <Grid ColumnDefinitions="*,150" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="14" RowSpacing="12">
+            <StackPanel Spacing="5">
+              <TextBlock x:Name="HostLabelText" />
+              <TextBox x:Name="HostTextBox" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Spacing="5">
+              <TextBlock x:Name="PortLabelText" />
+              <TextBox x:Name="PortTextBox" />
+            </StackPanel>
+            <StackPanel Grid.Row="1" Spacing="5">
+              <TextBlock x:Name="UsernameLabelText" />
+              <TextBox x:Name="UsernameTextBox" />
+            </StackPanel>
+            <StackPanel Grid.Row="1" Grid.Column="1" Spacing="5">
+              <TextBlock x:Name="PasswordLabelText" />
+              <TextBox x:Name="PasswordBox" PasswordChar="●" />
+            </StackPanel>
+            <TextBlock x:Name="PasswordMemoryHintText" Grid.Row="2" Grid.ColumnSpan="2"
+                       Opacity="0.72" TextWrapping="Wrap" />
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <Border Padding="18" BorderThickness="1" CornerRadius="10" BorderBrush="#33000000">
+        <StackPanel Spacing="14">
+          <TextBlock x:Name="PolicySectionText" FontSize="18" FontWeight="SemiBold" />
+          <CheckBox x:Name="RootLoginCheckBox" IsChecked="True" />
+          <CheckBox x:Name="PasswordLoginCheckBox" IsChecked="True" />
+          <TextBlock x:Name="PolicyHintText" Opacity="0.72" TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <Border Padding="18" BorderThickness="1" CornerRadius="10" BorderBrush="#33000000">
+        <StackPanel Spacing="14">
+          <TextBlock x:Name="KeySectionText" FontSize="18" FontWeight="SemiBold" />
+          <TextBlock x:Name="KeyPathLabelText" />
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+            <TextBox x:Name="KeyPathTextBox" />
+            <Button x:Name="UseDefaultKeyPathButton" Grid.Column="1" Click="UseDefaultKeyPathButton_Click" />
+          </Grid>
+          <TextBlock x:Name="KeyPathHintText" Opacity="0.72" TextWrapping="Wrap" />
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <Button x:Name="GenerateKeyButton" Click="GenerateKeyButton_Click" />
+            <Button x:Name="OpenKeyFolderButton" Click="OpenKeyFolderButton_Click" />
+            <Button x:Name="DeployButton" Click="DeployButton_Click" FontWeight="SemiBold" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <Border Padding="18" BorderThickness="1" CornerRadius="10" BorderBrush="#33000000">
+        <StackPanel Spacing="10">
+          <TextBlock x:Name="ProgressSectionText" FontSize="18" FontWeight="SemiBold" />
+          <ProgressBar x:Name="ProgressBar" Minimum="0" Maximum="100" Height="8" />
+          <TextBlock x:Name="ProgressText" TextWrapping="Wrap" />
+          <TextBox x:Name="LogTextBox" Height="180" IsReadOnly="True" AcceptsReturn="True"
+                   TextWrapping="Wrap" ScrollViewer.VerticalScrollBarVisibility="Auto" />
+        </StackPanel>
+      </Border>
+
+      <Border Padding="18" BorderThickness="1" CornerRadius="10" BorderBrush="#33000000">
+        <StackPanel Spacing="8">
+          <TextBlock x:Name="AboutSectionText" FontSize="18" FontWeight="SemiBold" />
+          <TextBlock x:Name="AboutText" TextWrapping="Wrap" Opacity="0.82" />
+          <Button x:Name="GitHubButton" HorizontalAlignment="Left" Click="GitHubButton_Click" />
+        </StackPanel>
+      </Border>
+
+      <TextBlock x:Name="FooterText" Opacity="0.62" TextWrapping="Wrap" />
+    </StackPanel>
+  </ScrollViewer>
+</Window>

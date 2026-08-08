@@ -1,0 +1,32 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="SshKeyDeployer.Mac.HostKeyPromptWindow"
+        Width="570"
+        Height="370"
+        MinWidth="520"
+        MinHeight="340"
+        CanResize="False"
+        ShowInTaskbar="False">
+  <Grid Margin="24" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="16">
+    <StackPanel Spacing="5">
+      <TextBlock x:Name="TitleText" FontSize="20" FontWeight="SemiBold" TextWrapping="Wrap" />
+      <TextBlock x:Name="LeadText" Opacity="0.75" TextWrapping="Wrap" />
+    </StackPanel>
+    <Border Grid.Row="1" Padding="14" BorderThickness="1" CornerRadius="8" BorderBrush="#33000000">
+      <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="100,*" RowSpacing="10" ColumnSpacing="12">
+        <TextBlock x:Name="ServerLabelText" />
+        <TextBlock x:Name="ServerValueText" Grid.Column="1" FontWeight="SemiBold" TextWrapping="Wrap" />
+        <TextBlock x:Name="AlgorithmLabelText" Grid.Row="1" />
+        <TextBlock x:Name="AlgorithmValueText" Grid.Row="1" Grid.Column="1" />
+        <TextBlock Text="SHA256" Grid.Row="2" />
+        <TextBox x:Name="FingerprintTextBox" Grid.Row="2" Grid.Column="1" IsReadOnly="True"
+                 TextWrapping="Wrap" />
+      </Grid>
+    </Border>
+    <TextBlock x:Name="WarningText" Grid.Row="2" Foreground="#C42B1C" TextWrapping="Wrap" />
+    <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+      <Button x:Name="CancelButton" Click="CancelButton_Click" />
+      <Button x:Name="ApproveButton" Click="ApproveButton_Click" FontWeight="SemiBold" />
+    </StackPanel>
+  </Grid>
+</Window>

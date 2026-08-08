@@ -11,19 +11,131 @@ public sealed class PrivateKeyAclProtector
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(privateKeyPath);
 
-        if (!OperatingSystem.IsWindows())
+        var fullPath = Path.GetFullPath(privateKeyPath);
+        if (OperatingSystem.IsWindows())
         {
-            throw new PlatformNotSupportedException(
-                "Private-key ACL protection requires Windows.");
+            ProtectWindows(fullPath);
+            return;
         }
 
-        ProtectWindows(Path.GetFullPath(privateKeyPath));
+        ProtectUnix(fullPath);
     }
 
     public bool IsSecure(string privateKeyPath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(privateKeyPath);
-        return OperatingSystem.IsWindows() && IsSecureWindows(Path.GetFullPath(privateKeyPath));
+
+        var fullPath = Path.GetFullPath(privateKeyPath);
+        return OperatingSystem.IsWindows()
+            ? IsSecureWindows(fullPath)
+            : IsSecureUnix(fullPath);
+    }
+
+    public void ProtectDirectory(string directoryPath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(directoryPath);
+
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        ProtectUnixDirectory(Path.GetFullPath(directoryPath));
+    }
+
+    private static void ProtectUnix(string privateKeyPath)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            throw new PlatformNotSupportedException(
+                "Unix private-key mode protection is not available on Windows.");
+        }
+
+        var fileInfo = new FileInfo(privateKeyPath);
+        if (!fileInfo.Exists)
+        {
+            throw new FileNotFoundException("Private-key file was not found.", privateKeyPath);
+        }
+
+        if (fileInfo.LinkTarget is not null)
+        {
+            throw new UnauthorizedAccessException(
+                "The private-key file must not be a symbolic link.");
+        }
+
+        // OpenSSH private keys must not be readable by the group or other users.
+        // Set the complete mode instead of only removing bits so inherited or
+        // pre-existing execute/special bits cannot survive the protection step.
+        File.SetUnixFileMode(
+            privateKeyPath,
+            UnixFileMode.UserRead | UnixFileMode.UserWrite);
+
+        if (!IsSecureUnix(privateKeyPath))
+        {
+            throw new UnauthorizedAccessException(
+                "The private-key file mode could not be restricted to owner read/write.");
+        }
+    }
+
+    private static bool IsSecureUnix(string privateKeyPath)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return false;
+        }
+
+        var fileInfo = new FileInfo(privateKeyPath);
+        if (!fileInfo.Exists || fileInfo.LinkTarget is not null)
+        {
+            return false;
+        }
+
+        try
+        {
+            return File.GetUnixFileMode(privateKeyPath) ==
+                   (UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
+        catch (PlatformNotSupportedException)
+        {
+            return false;
+        }
+    }
+
+    private static void ProtectUnixDirectory(string directoryPath)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            throw new PlatformNotSupportedException(
+                "Unix key-directory mode protection is not available on Windows.");
+        }
+
+        var directoryInfo = new DirectoryInfo(directoryPath);
+        if (!directoryInfo.Exists)
+        {
+            throw new DirectoryNotFoundException("Private-key directory was not found.");
+        }
+
+        if (directoryInfo.LinkTarget is not null)
+        {
+            throw new UnauthorizedAccessException(
+                "The private-key directory must not be a symbolic link.");
+        }
+
+        var secureMode = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
+        File.SetUnixFileMode(directoryPath, secureMode);
+        if (File.GetUnixFileMode(directoryPath) != secureMode)
+        {
+            throw new UnauthorizedAccessException(
+                "The private-key directory mode could not be restricted to owner access.");
+        }
     }
 
     [SupportedOSPlatform("windows")]
