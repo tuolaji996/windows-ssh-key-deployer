@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-version="${1:-1.2.0}"
+version="${1:-1.2.1}"
 configuration="${2:-Release}"
 bundle_version="${version%%-*}"
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

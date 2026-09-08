@@ -82,7 +82,7 @@
                         <TextBlock x:Name="NavStatusText" Grid.Column="1" Text="等待部署"
                                    Foreground="{DynamicResource MutedTextBrush}" FontSize="10"
                                    TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="2" Text="v1.2.0"
+                        <TextBlock Grid.Column="2" Text="v1.2.1"
                                    Foreground="{DynamicResource SubtleTextBrush}" FontSize="10"
                                    Margin="8,0,0,0" VerticalAlignment="Center" />
                     </Grid>
@@ -265,7 +265,7 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel>
                                         <TextBlock x:Name="KeyFileSectionTitleText" Text="密钥文件" Style="{StaticResource SectionTitleStyle}" />
-                                        <TextBlock x:Name="KeyFileDescriptionText" Text="选择私钥保存位置；公钥会自动使用相同文件名并加上 .pub。"
+                                        <TextBlock x:Name="KeyFileDescriptionText" Text="私钥必须保存在本机磁盘（建议放在 %USERPROFILE%\.ssh）；网络共享和映射盘不受支持。公钥会自动加上 .pub。"
                                                    Style="{StaticResource PageLeadStyle}" Margin="0,3,0,0" />
                                     </StackPanel>
                                     <TextBlock Grid.Column="1" Text="ED25519" Foreground="{DynamicResource AccentBrush}"
@@ -386,7 +386,7 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
-                        <TextBlock x:Name="KeysPageLeadText" Text="查看本机密钥文件。私钥只应保留在你的 Windows 电脑上。"
+                        <TextBlock x:Name="KeysPageLeadText" Text="查看本机密钥文件。私钥应保存在本机磁盘，不能放在网络共享或映射盘上。"
                                    Style="{StaticResource PageLeadStyle}" Margin="0,0,0,16" />
                         <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}"
                                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
@@ -430,7 +430,7 @@
                                 <TextBlock x:Name="AboutSubtitleText" Text="Windows 到 Debian 的 SSH 密钥部署工具" Style="{StaticResource SectionTitleStyle}" />
                                 <TextBlock x:Name="AboutDescriptionText" Text="生成 Ed25519 密钥，安装 authorized_keys，安全修改 sshd 配置并验证密钥登录。"
                                            Style="{StaticResource PageLeadStyle}" Margin="0,6,0,16" />
-                                <TextBlock x:Name="AboutVersionText" Text="版本 1.2.0 · 开源软件" Foreground="{DynamicResource MutedTextBrush}" FontSize="12" />
+                                <TextBlock x:Name="AboutVersionText" Text="版本 1.2.1 · 开源软件" Foreground="{DynamicResource MutedTextBrush}" FontSize="12" />
                                 <TextBlock Margin="0,14,0,0" FontSize="12" Foreground="{DynamicResource MutedTextBrush}">
                                     <Run x:Name="AboutCopyrightPrefixRun" Text="Copyright (c) 2026 tuolaji996 · " />
                                     <Hyperlink x:Name="AboutProjectHyperlink"

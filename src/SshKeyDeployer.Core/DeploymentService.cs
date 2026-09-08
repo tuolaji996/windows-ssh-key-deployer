@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Net;
+using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using Renci.SshNet;
@@ -119,14 +120,9 @@ public sealed class DeploymentService
 
             if (!state.SessionIsRoot)
             {
-                await RunCheckedAsync(
+                await CheckSudoAccessAsync(
                         passwordClient,
-                        "checking sudo access",
-                        "true",
-                        request.Password,
-                        standardInput: null,
-                        runAsRoot: true,
-                        sessionIsRoot: false,
+                        request,
                         cancellationToken)
                     .ConfigureAwait(false);
             }
@@ -401,14 +397,42 @@ public sealed class DeploymentService
                     exception);
             }
 
-            throw new DeploymentException(
-                "The initial password-authenticated SSH connection failed. No server changes were made.",
+            throw new InitialSshConnectionException(
+                request.Host,
+                request.Port,
+                request.Username,
+                ClassifyInitialSshConnectionFailure(exception),
                 exception);
         }
 
         return approvedHostKey
             ?? throw new DeploymentException(
                 "SSH.NET connected without an explicitly approved host key. No server changes were made.");
+    }
+
+    private static InitialSshConnectionFailureReason ClassifyInitialSshConnectionFailure(
+        Exception exception)
+    {
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is SshAuthenticationException)
+            {
+                return InitialSshConnectionFailureReason.AuthenticationRejected;
+            }
+
+            if (current is SshOperationTimeoutException or TimeoutException ||
+                current is SocketException { SocketErrorCode: SocketError.TimedOut })
+            {
+                return InitialSshConnectionFailureReason.TimedOut;
+            }
+
+            if (current is SocketException)
+            {
+                return InitialSshConnectionFailureReason.NetworkUnavailable;
+            }
+        }
+
+        return InitialSshConnectionFailureReason.Unknown;
     }
 
     private static HostKeyInfo ToHostKeyInfo(
@@ -1287,6 +1311,77 @@ public sealed class DeploymentService
         return result;
     }
 
+    private static async Task CheckSudoAccessAsync(
+        SshClient client,
+        DeploymentRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await RunAsync(
+                client,
+                "checking sudo access",
+                "true",
+                request.Password,
+                standardInput: null,
+                runAsRoot: true,
+                sessionIsRoot: false,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        if (result.ExitStatus == 0)
+        {
+            return;
+        }
+
+        var diagnostic = GetRemoteDiagnostic(result, request.Password);
+        var reason = ClassifySudoAccessFailure(diagnostic);
+        if (reason is not null)
+        {
+            throw new SudoAccessException(request.Username, reason.Value, diagnostic);
+        }
+
+        throw CreateRemoteCommandException("checking sudo access", result, request.Password);
+    }
+
+    private static SudoAccessFailureReason? ClassifySudoAccessFailure(
+        string diagnostic)
+    {
+        if (ContainsAny(
+                diagnostic,
+                "not in the sudoers file",
+                "is not allowed to run sudo",
+                "may not run sudo",
+                "is not in the sudoers"))
+        {
+            return SudoAccessFailureReason.NotAuthorized;
+        }
+
+        if (ContainsAny(
+                diagnostic,
+                "sudo: command not found",
+                "sudo: not found",
+                "sudo: no such file or directory"))
+        {
+            return SudoAccessFailureReason.CommandUnavailable;
+        }
+
+        if (ContainsAny(
+                diagnostic,
+                "incorrect password attempt",
+                "sorry, try again",
+                "authentication failure",
+                "a password is required",
+                "no password was provided"))
+        {
+            return SudoAccessFailureReason.AuthenticationRejected;
+        }
+
+        return null;
+    }
+
+    private static bool ContainsAny(string value, params string[] candidates) =>
+        candidates.Any(candidate =>
+            value.Contains(candidate, StringComparison.OrdinalIgnoreCase));
+
     private static async Task<RemoteCommandResult> RunAsync(
         SshClient client,
         string operation,
@@ -1366,15 +1461,22 @@ public sealed class DeploymentService
         RemoteCommandResult result,
         string password)
     {
-        var diagnostic = string.IsNullOrWhiteSpace(result.StandardError)
-            ? result.StandardOutput
-            : result.StandardError;
-        diagnostic = Redact(diagnostic, password);
+        var diagnostic = GetRemoteDiagnostic(result, password);
 
         return new DeploymentException(
             string.IsNullOrWhiteSpace(diagnostic)
                 ? $"Remote operation failed while {operation} (exit {result.ExitStatus})."
                 : $"Remote operation failed while {operation} (exit {result.ExitStatus}): {diagnostic}");
+    }
+
+    private static string GetRemoteDiagnostic(
+        RemoteCommandResult result,
+        string password)
+    {
+        var diagnostic = string.IsNullOrWhiteSpace(result.StandardError)
+            ? result.StandardOutput
+            : result.StandardError;
+        return Redact(diagnostic, password);
     }
 
     private static string BuildManagedConfig(DeploymentRequest request)

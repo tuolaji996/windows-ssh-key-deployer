@@ -14,6 +14,12 @@ public sealed class PrivateKeyAclProtector
         var fullPath = Path.GetFullPath(privateKeyPath);
         if (OperatingSystem.IsWindows())
         {
+            if (PrivateKeyPathPolicy.IsUnsupportedWindowsNetworkPath(fullPath))
+            {
+                throw new UnauthorizedAccessException(
+                    PrivateKeyPathPolicy.WindowsNetworkPathErrorMessage);
+            }
+
             ProtectWindows(fullPath);
             return;
         }
@@ -26,6 +32,11 @@ public sealed class PrivateKeyAclProtector
         ArgumentException.ThrowIfNullOrWhiteSpace(privateKeyPath);
 
         var fullPath = Path.GetFullPath(privateKeyPath);
+        if (PrivateKeyPathPolicy.IsUnsupportedWindowsNetworkPath(fullPath))
+        {
+            return false;
+        }
+
         return OperatingSystem.IsWindows()
             ? IsSecureWindows(fullPath)
             : IsSecureUnix(fullPath);

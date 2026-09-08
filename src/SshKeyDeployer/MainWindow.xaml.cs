@@ -106,9 +106,24 @@ public partial class MainWindow : Window
 
         if (dialog.ShowDialog(this) == true)
         {
-            KeyPathTextBox.Text = dialog.FileName.EndsWith(".pub", StringComparison.OrdinalIgnoreCase)
+            var selectedPath = dialog.FileName.EndsWith(".pub", StringComparison.OrdinalIgnoreCase)
                 ? dialog.FileName[..^4]
                 : dialog.FileName;
+
+            if (PrivateKeyPathPolicy.IsUnsupportedWindowsNetworkPath(selectedPath))
+            {
+                var warning = TranslateExceptionMessage(
+                    PrivateKeyPathPolicy.WindowsNetworkPathErrorMessage);
+                MessageBox.Show(
+                    this,
+                    warning.Value,
+                    T("请选择本机路径", "Choose a local path"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
+            KeyPathTextBox.Text = selectedPath;
             UpdateKeyDisplays();
         }
     }
@@ -235,6 +250,7 @@ public partial class MainWindow : Window
         }
         catch (DeploymentException exception)
         {
+            var detail = TranslateDeploymentException(exception);
             var rollback = exception.RollbackAttempted
                 ? exception.RollbackSucceeded
                     ? new LocalizedText("远端配置已恢复。", "Remote configuration was restored.")
@@ -246,8 +262,8 @@ public partial class MainWindow : Window
                 "部署失败",
                 "Deployment failed",
                 new LocalizedText(
-                    $"{exception.Message}\n\n{rollback.Chinese}",
-                    $"{exception.Message}\n\n{rollback.English}"));
+                    $"{detail.Chinese}\n\n{rollback.Chinese}",
+                    $"{detail.English}\n\n{rollback.English}"));
         }
         catch (Exception exception)
         {
@@ -648,7 +664,9 @@ public partial class MainWindow : Window
         try
         {
             var directory = Path.GetDirectoryName(Path.GetFullPath(current));
-            if (!string.IsNullOrWhiteSpace(directory) && Directory.Exists(directory))
+            if (!string.IsNullOrWhiteSpace(directory) &&
+                Directory.Exists(directory) &&
+                !PrivateKeyPathPolicy.IsUnsupportedWindowsNetworkPath(directory))
             {
                 return directory;
             }
@@ -657,14 +675,21 @@ public partial class MainWindow : Window
         {
         }
 
-        return Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+        var defaultDirectory = GetDefaultKeyDirectory();
+        if (Directory.Exists(defaultDirectory))
+        {
+            return defaultDirectory;
+        }
+
+        var sshDirectory = Path.GetDirectoryName(defaultDirectory);
+        return !string.IsNullOrWhiteSpace(sshDirectory) && Directory.Exists(sshDirectory)
+            ? sshDirectory
+            : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
     }
 
     private static string FindAvailableDefaultKeyPath()
     {
-        var directory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-            "SSH Keys");
+        var directory = GetDefaultKeyDirectory();
         var candidate = Path.Combine(directory, "server_ed25519");
         if (!File.Exists(candidate) && !File.Exists(candidate + ".pub"))
         {
@@ -681,6 +706,27 @@ public partial class MainWindow : Window
         }
 
         return Path.Combine(directory, $"server_ed25519_{DateTime.Now:yyyyMMddHHmmss}");
+    }
+
+    private static string GetDefaultKeyDirectory()
+    {
+        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (!string.IsNullOrWhiteSpace(userProfile))
+        {
+            var preferredDirectory = Path.Combine(
+                userProfile,
+                ".ssh",
+                "ssh-key-deployer");
+            if (!PrivateKeyPathPolicy.IsUnsupportedWindowsNetworkPath(preferredDirectory))
+            {
+                return preferredDirectory;
+            }
+        }
+
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "SSH Key Deployer",
+            "keys");
     }
 
     private void ApplyLanguage()
@@ -731,8 +777,8 @@ public partial class MainWindow : Window
 
         KeyFileSectionTitleText.Text = T("密钥文件", "Key files");
         KeyFileDescriptionText.Text = T(
-            "选择私钥保存位置；公钥会自动使用相同文件名并加上 .pub。",
-            "Choose where to save the private key. The public key uses the same filename with .pub appended.");
+            "私钥必须保存在本机磁盘（建议放在 %USERPROFILE%\\.ssh）；网络共享和映射盘不受支持。公钥会自动加上 .pub。",
+            "Save the private key on a local drive (preferably under %USERPROFILE%\\.ssh). Network shares and mapped drives are not supported. The public key uses .pub.");
         BrowseKeyPathButton.Content = T("选择位置", "Choose location");
         AutomationProperties.SetName(KeyPathTextBox, T("私钥保存路径", "Private key save path"));
         AutomationProperties.SetName(BrowseKeyPathButton, T("选择私钥保存位置", "Choose private key location"));
@@ -751,8 +797,8 @@ public partial class MainWindow : Window
         VerifyStepLabelText.Text = T("密钥回连", "Verify key");
 
         KeysPageLeadText.Text = T(
-            "查看本机密钥文件。私钥只应保留在你的 Windows 电脑上。",
-            "View local key files. The private key must remain on your Windows PC.");
+            "查看本机密钥文件。私钥应保存在本机磁盘，不能放在网络共享或映射盘上。",
+            "View local key files. Keep private keys on a local drive, not a network share or mapped drive.");
         CurrentKeysTitleText.Text = T("当前密钥", "Current keys");
         PrivateKeyLabelText.Text = T("私钥", "Private key");
         PublicKeyLabelText.Text = T("公钥", "Public key");
@@ -765,7 +811,7 @@ public partial class MainWindow : Window
         AboutDescriptionText.Text = T(
             "生成 Ed25519 密钥，安装 authorized_keys，安全修改 sshd 配置并验证密钥登录。",
             "Generates Ed25519 keys, installs authorized_keys, safely manages sshd configuration, and verifies key login.");
-        AboutVersionText.Text = T("版本 1.2.0 · 开源软件", "Version 1.2.0 · Open source software");
+        AboutVersionText.Text = T("版本 1.2.1 · 开源软件", "Version 1.2.1 · Open source software");
         AboutCopyrightPrefixRun.Text = T("版权所有 (c) 2026 tuolaji996 · ", "Copyright (c) 2026 tuolaji996 · ");
         FooterCopyrightPrefixRun.Text = T("版权所有 (c) 2026 tuolaji996 · ", "Copyright (c) 2026 tuolaji996 · ");
         SetHyperlinkText(AboutProjectHyperlink, T("GitHub 项目", "GitHub Project"));
@@ -826,6 +872,7 @@ public partial class MainWindow : Window
             .Replace("Private-key path is invalid.", "私钥保存路径无效。", StringComparison.Ordinal)
             .Replace("Private-key path must be absolute.", "密钥保存位置必须是完整路径。", StringComparison.Ordinal)
             .Replace("Select the private key, not the .pub file.", "请选择私钥文件，而不是 .pub 文件。", StringComparison.Ordinal)
+            .Replace(PrivateKeyPathPolicy.WindowsNetworkPathErrorMessage, "私钥必须保存在 Windows 本机磁盘。Windows OpenSSH 无法可靠收紧网络共享或映射盘上的私钥权限。请选择 %USERPROFILE%\\.ssh 下的本机路径后重试。", StringComparison.Ordinal)
             .Replace("Private-key file does not exist.", "私钥文件不存在。", StringComparison.Ordinal)
             .Replace("Matching .pub file does not exist.", "匹配的 .pub 文件不存在。", StringComparison.Ordinal)
             .Replace("Host:", "服务器：", StringComparison.Ordinal)
@@ -841,8 +888,53 @@ public partial class MainWindow : Window
     {
         var chinese = message
             .Replace("The private key and .pub file must exist as a pair. Choose a new filename; existing keys will not be overwritten.", "私钥和 .pub 文件必须成对存在。请选择新的文件名，工具不会覆盖已有密钥。", StringComparison.Ordinal)
+            .Replace(PrivateKeyPathPolicy.WindowsNetworkPathErrorMessage, "私钥必须保存在 Windows 本机磁盘。Windows OpenSSH 无法可靠收紧网络共享或映射盘上的私钥权限。请选择 %USERPROFILE%\\.ssh 下的本机路径后重试。", StringComparison.Ordinal)
             .Replace("Key folder does not exist yet.", "密钥文件夹尚不存在。", StringComparison.Ordinal);
         return new LocalizedText(chinese, message);
+    }
+
+    private static LocalizedText TranslateDeploymentException(
+        DeploymentException exception)
+    {
+        if (exception is InitialSshConnectionException connectionException)
+        {
+            var endpoint = $"{connectionException.Host}:{connectionException.Port}";
+            return connectionException.Reason switch
+            {
+                InitialSshConnectionFailureReason.AuthenticationRejected => new LocalizedText(
+                    $"已经连接到 SSH 服务器 {endpoint}，但服务器拒绝账户“{connectionException.Username}”的密码登录。请检查账户名和该账户当前密码（不是 root 密码），并确认服务器允许该账户使用密码认证。",
+                    connectionException.Message),
+                InitialSshConnectionFailureReason.TimedOut => new LocalizedText(
+                    $"连接 SSH 服务器 {endpoint} 超时。请检查 IP 或域名、端口、防火墙、VPN / 局域网连接，并确认 sshd 正在运行。",
+                    connectionException.Message),
+                InitialSshConnectionFailureReason.NetworkUnavailable => new LocalizedText(
+                    $"无法建立到 SSH 服务器 {endpoint} 的连接。请检查 IP 或域名、端口、防火墙、VPN / 局域网连接，并确认 sshd 正在运行。",
+                    connectionException.Message),
+                _ => new LocalizedText(
+                    "初始 SSH 密码连接失败。请检查服务器地址、端口、账户、当前账户密码以及 SSH 服务。",
+                    connectionException.Message)
+            };
+        }
+
+        if (exception is SudoAccessException sudoException)
+        {
+            var username = sudoException.Username;
+            return sudoException.Reason switch
+            {
+                SudoAccessFailureReason.NotAuthorized => new LocalizedText(
+                    $"SSH 密码登录已经成功，但账户“{username}”没有 sudo 权限。能用 su 输入 root 密码，并不等于该账户拥有 sudo 权限。\n\n请在 root 终端执行：\nadduser {username} sudo\n\n然后完全退出“{username}”的所有会话，重新登录，运行 sudo -k true 验证后再试。",
+                    sudoException.Message),
+                SudoAccessFailureReason.CommandUnavailable => new LocalizedText(
+                    $"SSH 密码登录已经成功，但服务器没有安装 sudo。\n\n请在 root 终端执行：\napt-get update\napt-get install -y sudo\nadduser {username} sudo\n\n然后完全退出“{username}”的所有会话，重新登录后再试。",
+                    sudoException.Message),
+                SudoAccessFailureReason.AuthenticationRejected => new LocalizedText(
+                    $"SSH 密码登录已经成功，但 sudo 拒绝了账户“{username}”的密码。sudo 通常需要当前账户的密码，而不是 root 密码。\n\n请重新登录“{username}”，先运行 sudo -k true 验证，再回到本工具重试。",
+                    sudoException.Message),
+                _ => TranslateExceptionMessage(exception.Message)
+            };
+        }
+
+        return TranslateExceptionMessage(exception.Message);
     }
 
     private static LocalizedText TranslateProgress(DeploymentProgress progress) => progress.Stage switch

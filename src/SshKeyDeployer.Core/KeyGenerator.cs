@@ -234,6 +234,12 @@ public sealed class KeyGenerator
             throw new KeyGenerationException("Choose a private-key path without the .pub suffix.");
         }
 
+        if (PrivateKeyPathPolicy.IsUnsupportedWindowsNetworkPath(fullPath))
+        {
+            throw new KeyGenerationException(
+                PrivateKeyPathPolicy.WindowsNetworkPathErrorMessage);
+        }
+
         return fullPath;
     }
 

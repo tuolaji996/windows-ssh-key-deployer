@@ -1,4 +1,6 @@
+using System.Net.Sockets;
 using System.Reflection;
+using Renci.SshNet.Common;
 using SshKeyDeployer.Core;
 
 var tests = new (string Name, Func<Task> Run)[]
@@ -8,6 +10,9 @@ var tests = new (string Name, Func<Task> Run)[]
     ("SSH policy rendering", TestSshPolicyRenderingAsync),
     ("Managed drop-in path precedence", TestManagedPathAsync),
     ("Remote command safety contracts", TestRemoteCommandSafetyAsync),
+    ("Initial SSH connection diagnosis", TestInitialConnectionGuidanceAsync),
+    ("Sudo failure diagnosis and recovery guidance", TestSudoGuidanceAsync),
+    ("Windows private-key local path policy", TestPrivateKeyPathPolicyAsync),
     ("Ed25519 generation, ACL, reuse, and collision safety", TestKeyLifecycleAsync)
 };
 
@@ -202,6 +207,166 @@ static Task TestRemoteCommandSafetyAsync()
     return Task.CompletedTask;
 }
 
+static Task TestSudoGuidanceAsync()
+{
+    var classifier = typeof(DeploymentService).GetMethod(
+        "ClassifySudoAccessFailure",
+        BindingFlags.Static | BindingFlags.NonPublic)
+        ?? throw new InvalidOperationException(
+            "ClassifySudoAccessFailure was not found.");
+
+    AssertEqual(
+        SudoAccessFailureReason.NotAuthorized,
+        InvokeKnownSudoClassifier(
+            classifier,
+            "sudo: spencer is not in the sudoers file."),
+        "A sudoers denial was classified incorrectly.");
+    AssertEqual(
+        SudoAccessFailureReason.CommandUnavailable,
+        InvokeKnownSudoClassifier(
+            classifier,
+            "sh: 1: sudo: not found"),
+        "A missing sudo command was classified incorrectly.");
+    AssertEqual(
+        SudoAccessFailureReason.AuthenticationRejected,
+        InvokeKnownSudoClassifier(
+            classifier,
+            "sudo: 1 incorrect password attempt"),
+        "A sudo password rejection was classified incorrectly.");
+    Assert(
+        InvokeSudoClassifier(classifier, "unrelated remote failure") is null,
+        "An unrelated remote failure was misclassified as a sudo setup problem.");
+
+    const string diagnosticCanary = "test-only-password";
+    var exception = new SudoAccessException(
+        "spencer",
+        SudoAccessFailureReason.NotAuthorized,
+        $"spencer is not in the sudoers file. password={diagnosticCanary}");
+    AssertContains(exception.Message, "SSH password login succeeded");
+    AssertContains(exception.Message, "Using 'su' with the root password is different");
+    AssertContains(exception.Message, "adduser spencer sudo");
+    AssertContains(exception.Message, "fully sign out");
+    Assert(
+        !exception.Message.Contains(diagnosticCanary, StringComparison.Ordinal),
+        "Sudo guidance exposed a password from the server diagnostic.");
+    return Task.CompletedTask;
+}
+
+static Task TestInitialConnectionGuidanceAsync()
+{
+    var classifier = typeof(DeploymentService).GetMethod(
+        "ClassifyInitialSshConnectionFailure",
+        BindingFlags.Static | BindingFlags.NonPublic)
+        ?? throw new InvalidOperationException(
+            "ClassifyInitialSshConnectionFailure was not found.");
+
+    AssertEqual(
+        InitialSshConnectionFailureReason.AuthenticationRejected,
+        InvokeInitialConnectionClassifier(
+            classifier,
+            new SshAuthenticationException("Permission denied.")),
+        "A password-authentication rejection was classified incorrectly.");
+    AssertEqual(
+        InitialSshConnectionFailureReason.TimedOut,
+        InvokeInitialConnectionClassifier(
+            classifier,
+            new SshOperationTimeoutException("Connection timed out.")),
+        "An SSH timeout was classified incorrectly.");
+    AssertEqual(
+        InitialSshConnectionFailureReason.NetworkUnavailable,
+        InvokeInitialConnectionClassifier(
+            classifier,
+            new InvalidOperationException(
+                "Wrapped network failure.",
+                new SocketException((int)SocketError.ConnectionRefused))),
+        "A wrapped socket failure was classified incorrectly.");
+    AssertEqual(
+        InitialSshConnectionFailureReason.Unknown,
+        InvokeInitialConnectionClassifier(
+            classifier,
+            new InvalidOperationException("Unrelated connection failure.")),
+        "An unknown connection failure was classified incorrectly.");
+
+    const string passwordCanary = "password-must-not-appear";
+    var exception = new InitialSshConnectionException(
+        "debian.example.test",
+        22,
+        "spencer",
+        InitialSshConnectionFailureReason.AuthenticationRejected,
+        new SshAuthenticationException(passwordCanary));
+    AssertContains(exception.Message, "password authentication was rejected");
+    AssertContains(exception.Message, "spencer");
+    Assert(
+        !exception.Message.Contains(passwordCanary, StringComparison.Ordinal),
+        "Initial connection guidance exposed the underlying exception text.");
+    return Task.CompletedTask;
+}
+
+static InitialSshConnectionFailureReason InvokeInitialConnectionClassifier(
+    MethodInfo classifier,
+    Exception exception) =>
+    (InitialSshConnectionFailureReason)(classifier.Invoke(null, [exception])
+        ?? throw new InvalidOperationException(
+            "Initial SSH connection classifier returned null."));
+
+static async Task TestPrivateKeyPathPolicyAsync()
+{
+    if (!OperatingSystem.IsWindows())
+    {
+        return;
+    }
+
+    const string uncPath = @"\\server.example.test\keys\server_ed25519";
+    Assert(
+        PrivateKeyPathPolicy.IsUnsupportedWindowsNetworkPath(uncPath),
+        "A UNC private-key path was accepted as a local Windows path.");
+    Assert(
+        !PrivateKeyPathPolicy.IsUnsupportedWindowsNetworkPath(
+            Path.Combine(Path.GetTempPath(), "server_ed25519")),
+        "A local Windows private-key path was rejected.");
+    Assert(
+        !PrivateKeyPathPolicy.IsUnsupportedWindowsNetworkPath(
+            @"\\?\C:\Users\example\server_ed25519"),
+        "An extended-length local Windows path was mistaken for a network path.");
+
+    var mappedNetworkDrive = DriveInfo.GetDrives()
+        .FirstOrDefault(drive => drive.DriveType == DriveType.Network);
+    if (mappedNetworkDrive is not null)
+    {
+        var mappedPath = Path.Combine(
+            mappedNetworkDrive.RootDirectory.FullName,
+            "server_ed25519");
+        Assert(
+            PrivateKeyPathPolicy.IsUnsupportedWindowsNetworkPath(mappedPath),
+            "A mapped network drive was accepted as a local Windows path.");
+    }
+
+    var validation = DeploymentRequestValidator.Validate(
+        NewRequest(keyPath: uncPath),
+        requireExistingKey: false);
+    Assert(
+        validation.Errors.Any(error =>
+            error.PropertyName == nameof(DeploymentRequest.KeyPath) &&
+            error.Message == PrivateKeyPathPolicy.WindowsNetworkPathErrorMessage),
+        "Deployment validation did not explain the Windows network-path restriction.");
+
+    await AssertThrowsAsync<KeyGenerationException>(
+        () => new KeyGenerator().GenerateAsync(uncPath),
+        "Key generation attempted to write a private key to a UNC path.");
+}
+
+static SudoAccessFailureReason? InvokeSudoClassifier(
+    MethodInfo classifier,
+    string diagnostic) =>
+    (SudoAccessFailureReason?)classifier.Invoke(null, [diagnostic]);
+
+static SudoAccessFailureReason InvokeKnownSudoClassifier(
+    MethodInfo classifier,
+    string diagnostic) =>
+    InvokeSudoClassifier(classifier, diagnostic)
+    ?? throw new InvalidOperationException(
+        $"Known sudo diagnostic was not classified: {diagnostic}");
+
 static async Task TestKeyLifecycleAsync()
 {
     var testDirectory = Path.Combine(
@@ -276,6 +441,7 @@ static DeploymentRequest NewRequest(
     int port = 22,
     string username = "root",
     string password = "test-" + "only-password",
+    string? keyPath = null,
     bool enableRootLogin = true,
     bool allowPasswordLogin = true) =>
     new(
@@ -283,7 +449,7 @@ static DeploymentRequest NewRequest(
         port,
         username,
         password,
-        Path.Combine(Path.GetTempPath(), "server_ed25519"),
+        keyPath ?? Path.Combine(Path.GetTempPath(), "server_ed25519"),
         enableRootLogin,
         allowPasswordLogin);
 

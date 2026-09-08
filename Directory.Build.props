@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <VersionPrefix>1.2.0</VersionPrefix>
+    <VersionPrefix>1.2.1</VersionPrefix>
     <Product>SSH Key Deployer</Product>
     <Authors>tuolaji996</Authors>
     <RepositoryUrl>https://github.com/tuolaji996/windows-ssh-key-deployer</RepositoryUrl>

@@ -126,6 +126,14 @@ public static partial class DeploymentRequestValidator
                 "Select the private key, not the .pub file."));
         }
 
+        if (PrivateKeyPathPolicy.IsUnsupportedWindowsNetworkPath(fullPath))
+        {
+            errors.Add(new ValidationError(
+                nameof(DeploymentRequest.KeyPath),
+                PrivateKeyPathPolicy.WindowsNetworkPathErrorMessage));
+            return;
+        }
+
         if (!requireExistingKey)
         {
             return;

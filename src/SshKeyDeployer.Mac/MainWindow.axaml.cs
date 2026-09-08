@@ -386,6 +386,44 @@ public partial class MainWindow : Window
 
     private string TranslateException(Exception exception)
     {
+        if (exception is InitialSshConnectionException connectionException)
+        {
+            var endpoint = $"{connectionException.Host}:{connectionException.Port}";
+            return connectionException.Reason switch
+            {
+                InitialSshConnectionFailureReason.AuthenticationRejected => T(
+                    $"已经连接到 SSH 服务器 {endpoint}，但服务器拒绝账户“{connectionException.Username}”的密码登录。请检查账户名和该账户当前密码（不是 root 密码），并确认服务器允许该账户使用密码认证。",
+                    connectionException.Message),
+                InitialSshConnectionFailureReason.TimedOut => T(
+                    $"连接 SSH 服务器 {endpoint} 超时。请检查 IP 或域名、端口、防火墙、VPN / 局域网连接，并确认 sshd 正在运行。",
+                    connectionException.Message),
+                InitialSshConnectionFailureReason.NetworkUnavailable => T(
+                    $"无法建立到 SSH 服务器 {endpoint} 的连接。请检查 IP 或域名、端口、防火墙、VPN / 局域网连接，并确认 sshd 正在运行。",
+                    connectionException.Message),
+                _ => T(
+                    "初始 SSH 密码连接失败。请检查服务器地址、端口、账户、当前账户密码以及 SSH 服务。",
+                    connectionException.Message)
+            };
+        }
+
+        if (exception is SudoAccessException sudoException)
+        {
+            var username = sudoException.Username;
+            return sudoException.Reason switch
+            {
+                SudoAccessFailureReason.NotAuthorized => T(
+                    $"SSH 密码登录已经成功，但账户“{username}”没有 sudo 权限。能用 su 输入 root 密码，并不等于该账户拥有 sudo 权限。\n\n请在 root 终端执行：\nadduser {username} sudo\n\n然后完全退出“{username}”的所有会话，重新登录，运行 sudo -k true 验证后再试。",
+                    sudoException.Message),
+                SudoAccessFailureReason.CommandUnavailable => T(
+                    $"SSH 密码登录已经成功，但服务器没有安装 sudo。\n\n请在 root 终端执行：\napt-get update\napt-get install -y sudo\nadduser {username} sudo\n\n然后完全退出“{username}”的所有会话，重新登录后再试。",
+                    sudoException.Message),
+                SudoAccessFailureReason.AuthenticationRejected => T(
+                    $"SSH 密码登录已经成功，但 sudo 拒绝了账户“{username}”的密码。sudo 通常需要当前账户的密码，而不是 root 密码。\n\n请重新登录“{username}”，先运行 sudo -k true 验证，再回到本工具重试。",
+                    sudoException.Message),
+                _ => sudoException.Message
+            };
+        }
+
         var message = exception.Message;
         if (_isEnglish)
         {
@@ -430,5 +468,5 @@ public partial class MainWindow : Window
     private static string VersionText() => typeof(App).Assembly
         .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
         .InformationalVersion
-        .Split('+')[0] ?? "1.2.0";
+        .Split('+')[0] ?? "1.2.1";
 }
