@@ -2,6 +2,19 @@
 
 本项目的重要变更记录在此。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### Added
+
+- 新增原生 macOS 版（`macos-native/`，SwiftUI）：Apple Silicon 与 Intel 通用二进制，支持 macOS 13+，只依赖系统框架，无需附带 .NET 运行时。
+- 原生版使用系统自带的 `ssh`、`ssh-keyscan`、`ssh-keygen`：主机密钥固定到用户确认的指纹，密码只通过一条 ControlMaster 连接发送一次，不读取或修改用户自己的 SSH 配置、known_hosts 和 agent。
+- 原生版新增部署步骤列表、复制公钥、在访达中显示、选择新建或现有密钥，以及部署中退出时先回滚再关闭。
+- CI 新增原生 macOS 通用包的测试与打包任务。
+
+### Changed
+
+- 原生版把检查与备份受管 sshd 配置的 5 次远程调用合并为 1 次，并移除未使用的公钥删除命令；authorized_keys 回滚脚本去除了重复分支。
+
 ## [1.2.1] - 2026-09-08
 
 ### Changed

@@ -15,7 +15,17 @@
 
 ## English
 
-SSH Key Deployer is a Windows and macOS Apple Silicon desktop application for creating an independent Ed25519 SSH key pair and deploying it to Debian servers you own or are authorized to administer. It is designed for the common first-login workflow: connect with an account and password, install the public key, choose SSH login policies, validate the server configuration, and confirm that key login works.
+SSH Key Deployer is a Windows and macOS desktop application for creating an independent Ed25519 SSH key pair and deploying it to Debian servers you own or are authorized to administer. It is designed for the common first-login workflow: connect with an account and password, install the public key, choose SSH login policies, validate the server configuration, and confirm that key login works.
+
+Two macOS builds are available:
+
+| | Native app (SwiftUI, recommended) | Cross-platform app (.NET / Avalonia) |
+| --- | --- | --- |
+| Source | [`macos-native/`](macos-native) | [`src/SshKeyDeployer.Mac/`](src/SshKeyDeployer.Mac) |
+| Macs | Apple Silicon and Intel (universal binary) | Apple Silicon only |
+| macOS | 13 Ventura or later | 12 Monterey or later |
+| Runtime | None needed (system frameworks only) | Bundles the .NET runtime |
+| SSH | macOS built-in `/usr/bin/ssh`, `ssh-keyscan`, `ssh-keygen` | SSH.NET library |
 
 ### Features
 
@@ -26,11 +36,12 @@ SSH Key Deployer is a Windows and macOS Apple Silicon desktop application for cr
 - Backs up affected SSH settings, checks `sshd` syntax and effective configuration, reloads SSH, and verifies a new key-based login. It attempts rollback when a deployment step fails.
 - Keeps the password in memory only for the current connection; it is not written to configuration files or logs.
 - Includes Simplified Chinese and English UI switching, light and dark themes, and a local key-file view.
+- The native macOS app adds a deployment step list, copy-public-key and Show in Finder actions, file pickers for new or existing keys, and a safe quit: quitting during a deployment cancels it and waits for rollback before exiting.
 
 ### Requirements
 
-- Windows 10 or Windows 11, x64; or macOS 12+ on Apple Silicon (M1 or later).
-- Windows OpenSSH Client, including `ssh-keygen.exe`; macOS uses the system `/usr/bin/ssh-keygen`.
+- Windows 10 or Windows 11, x64; macOS 13+ on Apple Silicon or Intel for the native app; or macOS 12+ on Apple Silicon for the cross-platform app.
+- Windows OpenSSH Client, including `ssh-keygen.exe`; macOS uses the system OpenSSH tools in `/usr/bin`, which ship with every Mac.
 - A Debian 12 or Debian 13 server running OpenSSH Server.
 - An initial SSH account and password, plus root or `sudo` access when changing SSH policy.
 
@@ -50,7 +61,26 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Version 1
 
 By default, the application is installed under `%LOCALAPPDATA%\Programs\SSH Key Deployer` and does not require administrator privileges.
 
-### Install on macOS Apple Silicon
+### Install the native macOS app
+
+Download the `macos-universal` ZIP and matching `.sha256` file from [Releases](https://github.com/tuolaji996/windows-ssh-key-deployer/releases/latest), then verify and open the app:
+
+```bash
+shasum -a 256 -c SSH-Key-Deployer-*-macos-universal.zip.sha256
+ditto -x -k SSH-Key-Deployer-*-macos-universal.zip .
+open "SSH Key Deployer.app"
+```
+
+The app is ad-hoc signed but not notarized, so on first launch macOS asks for confirmation (Control-click the app and choose **Open**, or allow it in **System Settings → Privacy & Security**). Only do that after the checksum matches and you trust this project. You can also move the app into `/Applications`.
+
+#### How the native app connects
+
+- It reads the server's host key with `ssh-keyscan` and shows the SHA-256 and MD5 fingerprints. Nothing is sent to the server until you approve.
+- The approved key is pinned in a private, temporary `known_hosts` file, and every later connection uses `StrictHostKeyChecking=yes` against that single key. Your own `~/.ssh/config`, `~/.ssh/known_hosts` and SSH agent are never read or changed.
+- The password authenticates one OpenSSH ControlMaster connection, so it is sent to the server once; all other commands run over that connection. The password reaches `ssh` through an `SSH_ASKPASS` helper environment variable visible only to your macOS account and root, and is never written to disk. sudo receives it on standard input, never on a command line.
+- Key-login verification opens a separate connection that may only use the new private key.
+
+### Install the cross-platform app on macOS Apple Silicon
 
 Download the `osx-arm64` ZIP and matching `.sha256` file from [Releases](https://github.com/tuolaji996/windows-ssh-key-deployer/releases/latest), then verify and open the app:
 
@@ -119,13 +149,21 @@ Create a self-contained, single-file `win-x64` package with:
 
 The ZIP archive and checksum are written to `artifacts/`.
 
-On macOS, build the self-contained Apple Silicon `.app` package with:
+On macOS, build the native universal app with Xcode 15 or later (or the Command Line Tools). The script runs the unit tests first:
+
+```bash
+./macos-native/package.sh 1.2.1
+```
+
+During development you can run it directly with `swift run --package-path macos-native`, and run the tests with `swift test --package-path macos-native`.
+
+Build the cross-platform, self-contained Apple Silicon `.app` package with:
 
 ```bash
 ./scripts/package-macos.sh 1.2.1
 ```
 
-The macOS ZIP and checksum are also written to `artifacts/`.
+Both macOS ZIP files and their checksums are written to `artifacts/`.
 
 ### Security and license
 
@@ -135,7 +173,17 @@ Report security concerns privately according to [SECURITY.md](SECURITY.md). This
 
 ## 简体中文
 
-SSH Key Deployer 是一款支持 Windows 和 macOS Apple Silicon 的桌面工具，用于生成独立的 Ed25519 SSH 密钥对，并部署到你拥有或获得明确授权管理的 Debian 服务器。它覆盖常见的首次登录流程：使用账户和密码连接、安装公钥、选择 SSH 登录策略、检查服务器配置，并验证密钥登录是否成功。
+SSH Key Deployer 是一款支持 Windows 和 macOS 的桌面工具，用于生成独立的 Ed25519 SSH 密钥对，并部署到你拥有或获得明确授权管理的 Debian 服务器。它覆盖常见的首次登录流程：使用账户和密码连接、安装公钥、选择 SSH 登录策略、检查服务器配置，并验证密钥登录是否成功。
+
+macOS 提供两个版本：
+
+| | 原生版（SwiftUI，推荐） | 跨平台版（.NET / Avalonia） |
+| --- | --- | --- |
+| 源码 | [`macos-native/`](macos-native) | [`src/SshKeyDeployer.Mac/`](src/SshKeyDeployer.Mac) |
+| 适用 Mac | Apple Silicon 与 Intel（通用二进制） | 仅 Apple Silicon |
+| 系统 | macOS 13 Ventura 及以上 | macOS 12 Monterey 及以上 |
+| 运行时 | 无需额外运行时（仅用系统框架） | 内置 .NET 运行时 |
+| SSH 实现 | 系统自带的 `/usr/bin/ssh`、`ssh-keyscan`、`ssh-keygen` | SSH.NET 库 |
 
 ### 主要功能
 
@@ -146,11 +194,12 @@ SSH Key Deployer 是一款支持 Windows 和 macOS Apple Silicon 的桌面工具
 - 备份受影响的 SSH 设置，检查 `sshd` 语法和有效配置，重载 SSH，并验证新密钥能够登录；部署步骤失败时会尝试回滚。
 - 密码只用于当前连接，既不会写入配置，也不会记录到日志。
 - 支持简体中文和英文界面切换，并提供亮色、深色主题和本机密钥文件查看入口。
+- 原生 macOS 版额外提供部署步骤列表、复制公钥、在访达中显示、选择新建或现有密钥的文件面板，以及安全退出：部署中退出会先取消并等待回滚完成后再关闭。
 
 ### 系统要求
 
-- Windows 10 或 Windows 11，x64；或搭载 Apple Silicon（M1 及以上）的 macOS 12+。
-- Windows 需要安装 Windows OpenSSH Client（含 `ssh-keygen.exe`）；macOS 使用系统自带的 `/usr/bin/ssh-keygen`。
+- Windows 10 或 Windows 11，x64；原生版需要 macOS 13+（Apple Silicon 或 Intel）；跨平台版需要 Apple Silicon 上的 macOS 12+。
+- Windows 需要安装 Windows OpenSSH Client（含 `ssh-keygen.exe`）；macOS 使用每台 Mac 都自带的 `/usr/bin` 下的 OpenSSH 工具。
 - 目标服务器为运行 OpenSSH Server 的 Debian 12 或 Debian 13。
 - 首次连接所需的账户和密码；修改 SSH 策略时还需要 root 或 `sudo` 权限。
 
@@ -170,7 +219,26 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Version 1
 
 默认会安装到当前用户的 `%LOCALAPPDATA%\Programs\SSH Key Deployer`，不需要管理员权限。
 
-### macOS Apple Silicon 安装
+### 安装原生 macOS 版
+
+从 [Releases](https://github.com/tuolaji996/windows-ssh-key-deployer/releases/latest) 下载 `macos-universal` ZIP 压缩包及对应的 `.sha256` 文件，核对哈希后解压并打开：
+
+```bash
+shasum -a 256 -c SSH-Key-Deployer-*-macos-universal.zip.sha256
+ditto -x -k SSH-Key-Deployer-*-macos-universal.zip .
+open "SSH Key Deployer.app"
+```
+
+应用使用临时（ad-hoc）签名但未经公证，首次打开时 macOS 会要求确认（按住 Control 点按应用并选择 **打开**，或在 **系统设置 → 隐私与安全性** 中允许）。只有在哈希一致且你信任本项目时才这样做。也可以把应用移到 `/Applications`。
+
+#### 原生版如何连接服务器
+
+- 先用 `ssh-keyscan` 读取服务器主机密钥并显示 SHA-256 与 MD5 指纹；在你确认之前，不会向服务器发送任何凭据。
+- 确认后的主机密钥固定写入一个私有的临时 `known_hosts`，之后每次连接都以 `StrictHostKeyChecking=yes` 只信任这一个密钥。不会读取或修改你自己的 `~/.ssh/config`、`~/.ssh/known_hosts` 和 SSH agent。
+- 密码只用于建立一条 OpenSSH ControlMaster 连接，因此只向服务器发送一次，其余命令都复用这条连接。密码通过 `SSH_ASKPASS` 辅助程序的环境变量交给 `ssh`，只有你的 macOS 账户和 root 能看到，绝不写入磁盘；sudo 通过标准输入接收密码，不会出现在命令行中。
+- 密钥登录验证会另开一条只能使用新私钥的连接。
+
+### 在 Apple Silicon Mac 上安装跨平台版
 
 从 [Releases](https://github.com/tuolaji996/windows-ssh-key-deployer/releases/latest) 下载 `osx-arm64` ZIP 压缩包及对应的 `.sha256` 文件，核对哈希后解压并打开：
 
@@ -239,13 +307,21 @@ Host debian-home
 
 ZIP 包和哈希文件会输出到 `artifacts/`。
 
-macOS 下可使用下面的命令生成自包含的 Apple Silicon `.app` 包：
+在 macOS 上用 Xcode 15 及以上版本（或 Command Line Tools）构建原生通用版；脚本会先运行单元测试：
+
+```bash
+./macos-native/package.sh 1.2.1
+```
+
+开发时可以直接用 `swift run --package-path macos-native` 运行，用 `swift test --package-path macos-native` 运行测试。
+
+生成跨平台、自包含的 Apple Silicon `.app` 包：
 
 ```bash
 ./scripts/package-macos.sh 1.2.1
 ```
 
-macOS ZIP 包和哈希文件同样会输出到 `artifacts/`。
+两个 macOS ZIP 包及哈希文件都会输出到 `artifacts/`。
 
 ### 安全与许可证
 
