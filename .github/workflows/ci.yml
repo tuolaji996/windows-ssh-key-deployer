@@ -51,7 +51,7 @@ jobs:
 
   macos-arm64-package:
     name: macOS Apple Silicon package
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 20
 
     env:
@@ -86,7 +86,7 @@ jobs:
 
   macos-native-package:
     name: Native macOS (SwiftUI) universal package
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 20
 
     steps:
