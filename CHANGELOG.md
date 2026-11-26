@@ -2,7 +2,7 @@
 
 本项目的重要变更记录在此。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [1.4.0] - 2026-11-26
 
 ### Added
 
@@ -63,6 +63,7 @@
 - `sshd` 配置检查、回滚和密钥回连验证。
 - `win-x64` 自包含单文件发布、SHA-256 校验文件与当前用户安装脚本。
 
+[1.4.0]: https://github.com/tuolaji996/windows-ssh-key-deployer/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/tuolaji996/windows-ssh-key-deployer/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/tuolaji996/windows-ssh-key-deployer/compare/v1.2.0...v1.2.1
 [1.0.0]: https://github.com/tuolaji996/windows-ssh-key-deployer/releases/tag/v1.0.0

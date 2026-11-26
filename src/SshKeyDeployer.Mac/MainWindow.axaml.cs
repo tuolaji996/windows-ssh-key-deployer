@@ -566,5 +566,5 @@ public partial class MainWindow : Window
     private static string VersionText() => typeof(App).Assembly
         .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
         .InformationalVersion
-        .Split('+')[0] ?? "1.3.0";
+        .Split('+')[0] ?? "1.4.0";
 }
