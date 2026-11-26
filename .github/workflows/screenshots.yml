@@ -1,0 +1,48 @@
+name: Screenshots
+
+# Renders the native macOS app's window content for sample states (zh/en, light/dark)
+# so the design can be reviewed without a Mac.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/swiftui
+    paths:
+      - 'macos-native/**'
+      - '.github/workflows/screenshots.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: screenshots-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  snapshots:
+    name: Native macOS UI snapshots
+    runs-on: macos-15
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Build the SwiftUI app
+        shell: bash
+        run: swift build --package-path macos-native
+
+      - name: Render snapshots
+        shell: bash
+        run: |
+          binary="$(swift build --package-path macos-native --show-bin-path)/SSHKeyDeployer"
+          "$binary" --snapshot "$RUNNER_TEMP/snapshots"
+          ls -l "$RUNNER_TEMP/snapshots"
+
+      - name: Upload snapshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-native-snapshots
+          path: ${{ runner.temp }}/snapshots/*.png
+          if-no-files-found: error
+          retention-days: 14

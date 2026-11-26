@@ -1,0 +1,33 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="SshKeyDeployer.Mac.PlanApprovalWindow"
+        Width="640"
+        Height="620"
+        MinWidth="540"
+        MinHeight="460"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner">
+  <Grid Margin="24" RowDefinitions="Auto,*,Auto,Auto" RowSpacing="14">
+    <StackPanel Spacing="5">
+      <TextBlock x:Name="TitleText" FontSize="20" FontWeight="SemiBold" TextWrapping="Wrap" />
+      <TextBlock x:Name="LeadText" Opacity="0.75" TextWrapping="Wrap" />
+    </StackPanel>
+    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+      <StackPanel Spacing="10">
+        <TextBlock x:Name="ServerSectionText" FontSize="15" FontWeight="SemiBold" />
+        <Border Padding="14" BorderThickness="1" CornerRadius="8" BorderBrush="#33000000">
+          <Grid x:Name="ServerDetailsGrid" ColumnDefinitions="Auto,*" ColumnSpacing="14" RowSpacing="6" />
+        </Border>
+        <TextBlock x:Name="ActionsSectionText" FontSize="15" FontWeight="SemiBold" Margin="0,6,0,0" />
+        <StackPanel x:Name="ActionsPanel" Spacing="8" />
+      </StackPanel>
+    </ScrollViewer>
+    <Border Grid.Row="2" Padding="10" CornerRadius="6" Background="#22E0A000">
+      <TextBlock x:Name="NoteText" TextWrapping="Wrap" FontSize="12" />
+    </Border>
+    <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+      <Button x:Name="CancelButton" IsDefault="True" IsCancel="True" Click="CancelButton_Click" />
+      <Button x:Name="ApproveButton" Click="ApproveButton_Click" FontWeight="SemiBold" />
+    </StackPanel>
+  </Grid>
+</Window>

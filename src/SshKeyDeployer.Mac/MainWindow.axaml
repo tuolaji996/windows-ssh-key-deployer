@@ -23,7 +23,7 @@
       <Border Padding="18" BorderThickness="1" CornerRadius="10" BorderBrush="#33000000">
         <StackPanel Spacing="14">
           <TextBlock x:Name="ConnectionSectionText" FontSize="18" FontWeight="SemiBold" />
-          <Grid ColumnDefinitions="*,150" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="14" RowSpacing="12">
+          <Grid ColumnDefinitions="*,150" RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnSpacing="14" RowSpacing="12">
             <StackPanel Spacing="5">
               <TextBlock x:Name="HostLabelText" />
               <TextBox x:Name="HostTextBox" />
@@ -42,6 +42,12 @@
             </StackPanel>
             <TextBlock x:Name="PasswordMemoryHintText" Grid.Row="2" Grid.ColumnSpan="2"
                        Opacity="0.72" TextWrapping="Wrap" />
+            <StackPanel Grid.Row="3" Grid.ColumnSpan="2" Spacing="5">
+              <TextBlock x:Name="RootPasswordLabelText" />
+              <TextBox x:Name="RootPasswordBox" PasswordChar="●" />
+            </StackPanel>
+            <TextBlock x:Name="RootPasswordHintText" Grid.Row="4" Grid.ColumnSpan="2"
+                       Opacity="0.72" TextWrapping="Wrap" />
           </Grid>
         </StackPanel>
       </Border>
@@ -51,6 +57,12 @@
           <TextBlock x:Name="PolicySectionText" FontSize="18" FontWeight="SemiBold" />
           <CheckBox x:Name="RootLoginCheckBox" IsChecked="True" />
           <CheckBox x:Name="PasswordLoginCheckBox" IsChecked="True" />
+          <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="12">
+            <CheckBox x:Name="ChangePortCheckBox" IsChecked="False"
+                      Click="ChangePortCheckBox_Click" VerticalAlignment="Center" />
+            <TextBox x:Name="NewPortTextBox" Grid.Column="1" Width="120" IsEnabled="False" />
+          </Grid>
+          <TextBlock x:Name="ChangePortHintText" Opacity="0.72" TextWrapping="Wrap" />
           <TextBlock x:Name="PolicyHintText" Opacity="0.72" TextWrapping="Wrap" />
         </StackPanel>
       </Border>

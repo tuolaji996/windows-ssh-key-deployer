@@ -15,7 +15,7 @@
 
 ## English
 
-SSH Key Deployer is a Windows and macOS desktop application for creating an independent Ed25519 SSH key pair and deploying it to Debian servers you own or are authorized to administer. It is designed for the common first-login workflow: connect with an account and password, install the public key, choose SSH login policies, validate the server configuration, and confirm that key login works.
+SSH Key Deployer is a Windows and macOS desktop application for creating an independent Ed25519 SSH key pair and deploying it to Linux servers you own or are authorized to administer. It is designed for the common first-login workflow: connect with an account and password, install the public key, choose SSH login policies, validate the server configuration, and confirm that key login works.
 
 Two macOS builds are available:
 
@@ -34,6 +34,9 @@ Two macOS builds are available:
 - Requests explicit approval of the SSH host-key fingerprint on first contact or when it changes.
 - Installs the public key in `authorized_keys` and can enable or disable root login and password authentication.
 - Backs up affected SSH settings, checks `sshd` syntax and effective configuration, reloads SSH, and verifies a new key-based login. It attempts rollback when a deployment step fails.
+- Inspects the server before changing anything: it checks the account's privileges first (root, sudo, or `su` with the root password), then the distribution, package manager, init system, firewall and SELinux, and shows a plan you must approve.
+- If the account has no sudo, it can use `su` with the root password to install `sudo` with the server's package manager (after you approve) and grant a temporary sudo rule that is always removed afterwards.
+- Can move SSH to a new port in two phases: the new port is opened (ufw/firewalld, SELinux label) and key login is verified on it before the old port is closed; any failure rolls back.
 - Keeps the password in memory only for the current connection; it is not written to configuration files or logs.
 - Includes Simplified Chinese and English UI switching, light and dark themes, and a local key-file view.
 - The native macOS app adds a deployment step list, copy-public-key and Show in Finder actions, file pickers for new or existing keys, and a safe quit: quitting during a deployment cancels it and waits for rollback before exiting.
@@ -42,8 +45,8 @@ Two macOS builds are available:
 
 - Windows 10 or Windows 11, x64; macOS 13+ on Apple Silicon or Intel for the native app; or macOS 12+ on Apple Silicon for the cross-platform app.
 - Windows OpenSSH Client, including `ssh-keygen.exe`; macOS uses the system OpenSSH tools in `/usr/bin`, which ship with every Mac.
-- A Debian 12 or Debian 13 server running OpenSSH Server.
-- An initial SSH account and password, plus root or `sudo` access when changing SSH policy.
+- A Linux server running OpenSSH Server whose `/etc/ssh/sshd_config` includes `/etc/ssh/sshd_config.d/*.conf`. Tested in CI on Debian 12/13, Ubuntu 22.04/24.04, AlmaLinux 9, Fedora, openSUSE Leap 15.6, Arch Linux and Alpine. RHEL/Rocky 9 work like AlmaLinux; CentOS/RHEL 7–8 and Amazon Linux 2 lack the include line and are stopped before any change, with instructions.
+- An initial SSH account and password, plus root, `sudo`, or the root password (for `su`).
 
 ### Install on Windows
 
@@ -97,7 +100,8 @@ The current macOS package is an unsigned technical preview because no Apple Deve
 1. Enter the server host name or IP address, SSH port, account name, and current password.
 2. Choose a local-disk location for the new private key, then select the desired root-login and password-authentication policies. On Windows, do not use a UNC path or mapped network drive.
 3. Compare the displayed host-key fingerprint through an independent channel, such as the provider console, before approving it.
-4. Start deployment and wait until the key-login verification succeeds. Keep your existing server console or SSH session open until that check completes.
+4. Review the plan: the detected system, how root access is obtained, and every change, including persistent ones such as package installs. Nothing on the server changes until you approve it.
+5. Start deployment and wait until the key-login verification succeeds. Keep your existing server console or SSH session open until that check completes.
 
 Use this application only for servers you own or have explicit permission to manage. Cancel the deployment if a host fingerprint is unexpected or does not match your independent verification.
 
@@ -115,7 +119,17 @@ adduser your-user sudo
 exit
 ```
 
+On other distributions use the matching commands: Fedora/RHEL/Rocky/Alma `dnf install -y sudo && usermod -aG wheel your-user`; openSUSE `zypper install sudo && usermod -aG wheel your-user`; Arch `pacman -S sudo`, `usermod -aG wheel your-user`, then enable the `%wheel` line with `visudo`; Alpine `apk add sudo && adduser your-user wheel`. Alternatively, enter the root password in the app ("If this account has no sudo") and it will do this through `su` for the deployment only.
+
 If `sudo` is already installed, the two `apt-get` commands can be skipped. Fully sign out of every session for that account, sign in again, run `sudo -k true` with the account's own password, and retry the deployment.
+
+#### The server does not load `/etc/ssh/sshd_config.d`
+
+The app writes its SSH policy to `/etc/ssh/sshd_config.d/00-ssh-key-deployer.conf` and never edits the main `sshd_config`. Older systems (CentOS/RHEL 7–8, Amazon Linux 2) do not read that folder, so the app stops before making any change. Add this line near the top of `/etc/ssh/sshd_config`, run `sshd -t`, reload SSH and retry:
+
+```text
+Include /etc/ssh/sshd_config.d/*.conf
+```
 
 #### Windows OpenSSH rejects a private key on `Z:` or another network drive
 
@@ -173,7 +187,7 @@ Report security concerns privately according to [SECURITY.md](SECURITY.md). This
 
 ## 简体中文
 
-SSH Key Deployer 是一款支持 Windows 和 macOS 的桌面工具，用于生成独立的 Ed25519 SSH 密钥对，并部署到你拥有或获得明确授权管理的 Debian 服务器。它覆盖常见的首次登录流程：使用账户和密码连接、安装公钥、选择 SSH 登录策略、检查服务器配置，并验证密钥登录是否成功。
+SSH Key Deployer 是一款支持 Windows 和 macOS 的桌面工具，用于生成独立的 Ed25519 SSH 密钥对，并部署到你拥有或获得明确授权管理的 Linux 服务器。它覆盖常见的首次登录流程：使用账户和密码连接、安装公钥、选择 SSH 登录策略、检查服务器配置，并验证密钥登录是否成功。
 
 macOS 提供两个版本：
 
@@ -192,6 +206,9 @@ macOS 提供两个版本：
 - 首次连接或主机密钥发生变化时，要求用户明确核对和确认 SSH 主机指纹。
 - 将公钥安装到 `authorized_keys`，并可选择开启或关闭 root 登录和密码登录。
 - 备份受影响的 SSH 设置，检查 `sshd` 语法和有效配置，重载 SSH，并验证新密钥能够登录；部署步骤失败时会尝试回滚。
+- 修改前先检测服务器：先检查账户权限（root、sudo，或用 root 密码通过 `su`），再检测发行版、包管理器、init 系统、防火墙和 SELinux，并列出变更计划，需你确认后才执行。
+- 账户没有 sudo 时，可用 root 密码通过 `su` 调用服务器的包管理器安装 `sudo`（需确认），并授予临时 sudo 规则，结束后一定删除。
+- 可分两阶段修改 SSH 端口：先放行新端口（ufw/firewalld、SELinux 标签）并在新端口验证密钥登录，再关闭旧端口；任何一步失败都会回滚。
 - 密码只用于当前连接，既不会写入配置，也不会记录到日志。
 - 支持简体中文和英文界面切换，并提供亮色、深色主题和本机密钥文件查看入口。
 - 原生 macOS 版额外提供部署步骤列表、复制公钥、在访达中显示、选择新建或现有密钥的文件面板，以及安全退出：部署中退出会先取消并等待回滚完成后再关闭。
@@ -200,8 +217,8 @@ macOS 提供两个版本：
 
 - Windows 10 或 Windows 11，x64；原生版需要 macOS 13+（Apple Silicon 或 Intel）；跨平台版需要 Apple Silicon 上的 macOS 12+。
 - Windows 需要安装 Windows OpenSSH Client（含 `ssh-keygen.exe`）；macOS 使用每台 Mac 都自带的 `/usr/bin` 下的 OpenSSH 工具。
-- 目标服务器为运行 OpenSSH Server 的 Debian 12 或 Debian 13。
-- 首次连接所需的账户和密码；修改 SSH 策略时还需要 root 或 `sudo` 权限。
+- 目标为运行 OpenSSH Server 的 Linux 服务器，且 `/etc/ssh/sshd_config` 包含 `/etc/ssh/sshd_config.d/*.conf`。CI 中已在 Debian 12/13、Ubuntu 22.04/24.04、AlmaLinux 9、Fedora、openSUSE Leap 15.6、Arch Linux 和 Alpine 上实测；RHEL/Rocky 9 与 AlmaLinux 相同；CentOS/RHEL 7–8、Amazon Linux 2 缺少该 Include 行，会在任何修改前停止并给出处理步骤。
+- 首次连接所需的账户和密码，以及 root、`sudo` 或 root 密码（用于 `su`）之一。
 
 ### Windows 安装
 
@@ -255,7 +272,8 @@ open "SSH Key Deployer.app"
 1. 填写服务器域名或 IP、SSH 端口、账户和当前密码。
 2. 选择新私钥在本机磁盘上的保存位置，并设定 root 登录和密码登录策略。Windows 下不要使用 UNC 网络路径或映射盘。
 3. 通过独立渠道核对显示的主机指纹，例如云服务商控制台，确认无误后再继续。
-4. 启动部署，等待密钥回连验证成功。在验证完成前，请保留现有服务器控制台或 SSH 会话。
+4. 查看变更计划：检测到的系统、获取 root 权限的方式和每一项变更（包括安装软件包这类不会回滚的变更）。确认之前服务器不会有任何改动。
+5. 启动部署，等待密钥回连验证成功。在验证完成前，请保留现有服务器控制台或 SSH 会话。
 
 本工具仅可用于你拥有或获得明确授权的服务器。遇到意外的主机指纹或无法独立核对的指纹时，请取消部署。
 
@@ -273,7 +291,17 @@ adduser your-user sudo
 exit
 ```
 
+其他发行版请用对应命令：Fedora/RHEL/Rocky/Alma `dnf install -y sudo && usermod -aG wheel your-user`；openSUSE `zypper install sudo && usermod -aG wheel your-user`；Arch `pacman -S sudo`、`usermod -aG wheel your-user`，再用 `visudo` 启用 `%wheel` 行；Alpine `apk add sudo && adduser your-user wheel`。也可以直接在工具中填写 root 密码（“如果此账号没有 sudo”），由工具通过 `su` 仅为本次部署完成这些操作。
+
 如果已经安装 `sudo`，可以跳过两条 `apt-get` 命令。随后必须完全退出该账户的所有会话，再重新登录；用该账户自己的密码运行 `sudo -k true`，验证成功后再回到工具部署。
+
+#### 服务器不读取 `/etc/ssh/sshd_config.d`
+
+工具把 SSH 策略写入 `/etc/ssh/sshd_config.d/00-ssh-key-deployer.conf`，不会修改主配置 `sshd_config`。较旧的系统（CentOS/RHEL 7–8、Amazon Linux 2）不读取该目录，因此工具会在任何修改前停止。请在 `/etc/ssh/sshd_config` 靠前位置加入下面一行，运行 `sshd -t` 并重载 SSH 后重试：
+
+```text
+Include /etc/ssh/sshd_config.d/*.conf
+```
 
 #### Windows OpenSSH 不接受 `Z:` 或其他网络盘上的私钥
 

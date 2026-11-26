@@ -218,26 +218,47 @@ public partial class MainWindow : Window
             var result = await _deploymentService.DeployAsync(
                 request,
                 ApproveHostKeyAsync,
+                ApprovePlanAsync,
                 ReportProgress,
                 _deploymentCancellation.Token);
 
             SetAllSteps(StepState.Completed);
             SetProgressSummary("部署成功", "Deployment succeeded");
             SetStatus("部署成功", "Deployment succeeded", success: true);
+            var sshCommand = DeploymentPresentation.BuildSshCommand(result);
+            var serverName = result.Server?.DisplayName ?? request.Host;
             AppendLog(
-                $"完成：已验证 {result.VerifiedUsername} 的密钥登录。",
-                $"Complete: key login for {result.VerifiedUsername} was verified.");
-            PasswordInput.Clear();
-            UpdateKeyDisplays();
+                $"完成：已在 {serverName} 上验证 {result.VerifiedUsername} 的密钥登录（端口 {result.SshPort}）。",
+                $"Complete: key login for {result.VerifiedUsername} was verified on {serverName} (port {result.SshPort}).");
+            AppendLog($"ssh: {sshCommand}", $"ssh: {sshCommand}");
+            foreach (var warning in result.Warnings)
+            {
+                AppendLog($"注意：{warning}", $"Warning: {warning}", isError: true);
+            }
 
+            PasswordInput.Clear();
+            RootPasswordInput.Clear();
+            UpdateKeyDisplays();
+            if (result.SshPort != request.Port)
+            {
+                PortTextBox.Text = result.SshPort.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                ChangePortCheckBox.IsChecked = false;
+                NewPortTextBox.Clear();
+            }
+
+            var warningText = result.Warnings.Count == 0
+                ? new LocalizedText(string.Empty, string.Empty)
+                : new LocalizedText(
+                    "\n\n注意：\n" + string.Join("\n", result.Warnings),
+                    "\n\nWarnings:\n" + string.Join("\n", result.Warnings));
             MessageBox.Show(
                 this,
                 T(
-                    $"部署完成，已用新私钥成功登录。\n\n验证账户：{result.VerifiedUsername}\n公钥指纹：{result.PublicKeyFingerprint}\nSSH 配置：{result.ManagedConfigPath}",
-                    $"Deployment complete. Login with the new private key succeeded.\n\nVerified account: {result.VerifiedUsername}\nPublic key fingerprint: {result.PublicKeyFingerprint}\nSSH configuration: {result.ManagedConfigPath}"),
+                    $"部署完成，已用新私钥成功登录。\n\n服务器：{serverName}\n验证账户：{result.VerifiedUsername}\nSSH 端口：{result.SshPort}\n公钥指纹：{result.PublicKeyFingerprint}\nSSH 配置：{result.ManagedConfigPath}\n\n今后可以这样登录：\n{sshCommand}{warningText.Chinese}",
+                    $"Deployment complete. Login with the new private key succeeded.\n\nServer: {serverName}\nVerified account: {result.VerifiedUsername}\nSSH port: {result.SshPort}\nPublic key fingerprint: {result.PublicKeyFingerprint}\nSSH configuration: {result.ManagedConfigPath}\n\nConnect from now on with:\n{sshCommand}{warningText.English}"),
                 T("部署成功", "Deployment succeeded"),
                 MessageBoxButton.OK,
-                MessageBoxImage.Information);
+                result.Warnings.Count == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
         }
         catch (OperationCanceledException)
         {
@@ -272,6 +293,7 @@ public partial class MainWindow : Window
         finally
         {
             PasswordInput.Clear();
+            RootPasswordInput.Clear();
             _deploymentCancellation?.Dispose();
             _deploymentCancellation = null;
             SetBusy(false);
@@ -285,6 +307,17 @@ public partial class MainWindow : Window
             throw new ArgumentException("Port must be a number between 1 and 65535.");
         }
 
+        int? newPort = null;
+        if (ChangePortCheckBox.IsChecked == true)
+        {
+            if (!int.TryParse(NewPortTextBox.Text.Trim(), out var parsedNewPort))
+            {
+                throw new ArgumentException("New SSH port must be a number between 1 and 65535.");
+            }
+
+            newPort = parsedNewPort;
+        }
+
         var request = new DeploymentRequest(
             HostTextBox.Text,
             port,
@@ -292,7 +325,9 @@ public partial class MainWindow : Window
             PasswordInput.Password,
             KeyPathTextBox.Text,
             AllowRootLoginCheckBox.IsChecked == true,
-            AllowPasswordLoginCheckBox.IsChecked == true);
+            AllowPasswordLoginCheckBox.IsChecked == true,
+            RootPasswordInput.Password,
+            newPort);
 
         DeploymentRequestValidator.EnsureValid(request, requireExistingKey);
         return request;
@@ -333,6 +368,44 @@ public partial class MainWindow : Window
         });
     }
 
+    private async Task<bool> ApprovePlanAsync(DeploymentPlan plan, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return await Dispatcher.InvokeAsync(() =>
+        {
+            AppendLog(
+                $"检测到：{DeploymentPresentation.DescribeServerSummary(plan.Server, english: false)}",
+                $"Detected: {DeploymentPresentation.DescribeServerSummary(plan.Server, english: true)}");
+            SetFooterStatus(
+                $"服务器：{plan.Server.DisplayName}",
+                $"Server: {plan.Server.DisplayName}");
+            var dialog = new PlanApprovalWindow(plan)
+            {
+                Owner = this
+            };
+            var approved = dialog.ShowDialog() == true;
+            AppendLog(
+                approved ? "部署计划已批准。" : "部署计划未获批准。",
+                approved ? "Deployment plan approved." : "Deployment plan was not approved.",
+                isError: !approved);
+            return approved;
+        });
+    }
+
+    private void ChangePortCheckBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (NewPortTextBox is null)
+        {
+            return;
+        }
+
+        NewPortTextBox.IsEnabled = ChangePortCheckBox.IsChecked == true && !_isBusy;
+        if (NewPortTextBox.IsEnabled)
+        {
+            NewPortTextBox.Focus();
+        }
+    }
+
     private void ReportProgress(DeploymentProgress progress)
     {
         Dispatcher.Invoke(() =>
@@ -349,6 +422,9 @@ public partial class MainWindow : Window
                     break;
                 case DeploymentStage.Connecting:
                 case DeploymentStage.AwaitingHostKeyApproval:
+                case DeploymentStage.InspectingServer:
+                case DeploymentStage.AwaitingPlanApproval:
+                case DeploymentStage.PreparingPrivileges:
                 case DeploymentStage.CheckingPrivileges:
                     SetStepState(ConnectStepDot, StepState.Active);
                     break;
@@ -357,6 +433,7 @@ public partial class MainWindow : Window
                 case DeploymentStage.ValidatingSshdConfiguration:
                 case DeploymentStage.ReloadingSsh:
                 case DeploymentStage.VerifyingEffectiveConfiguration:
+                case DeploymentStage.ChangingPort:
                     SetStepState(ConnectStepDot, StepState.Completed);
                     SetStepState(ConfigureStepDot, StepState.Active);
                     break;
@@ -386,6 +463,9 @@ public partial class MainWindow : Window
         PortTextBox.IsEnabled = !busy;
         UserNameTextBox.IsEnabled = !busy;
         PasswordInput.IsEnabled = !busy;
+        RootPasswordInput.IsEnabled = !busy;
+        ChangePortCheckBox.IsEnabled = !busy;
+        NewPortTextBox.IsEnabled = !busy && ChangePortCheckBox.IsChecked == true;
         AllowRootLoginCheckBox.IsEnabled = !busy;
         AllowPasswordLoginCheckBox.IsEnabled = !busy;
         BrowseKeyPathButton.IsEnabled = !busy;
@@ -752,8 +832,8 @@ public partial class MainWindow : Window
         AutomationProperties.SetName(ThemeButton, themeAction);
 
         DeployLeadText.Text = T(
-            "输入 Debian 服务器信息，生成独立 Ed25519 密钥并完成安装、配置校验和回连验证。",
-            "Enter Debian server details to generate a standalone Ed25519 key, install it, validate the configuration, and verify key login.");
+            "输入 Linux 服务器信息（Debian / Ubuntu、RHEL / Rocky / Alma / Fedora、openSUSE、Arch、Alpine），生成独立 Ed25519 密钥并完成安装、配置校验和回连验证。",
+            "Enter Linux server details (Debian / Ubuntu, RHEL / Rocky / Alma / Fedora, openSUSE, Arch, Alpine) to generate a standalone Ed25519 key, install it, validate the configuration, and verify key login.");
         ConnectionSectionTitleText.Text = T("服务器连接", "Server connection");
         HostLabelText.Text = T("IP 或域名", "IP address or hostname");
         PortLabelText.Text = T("端口", "Port");
@@ -763,6 +843,11 @@ public partial class MainWindow : Window
         AutomationProperties.SetName(PortTextBox, T("SSH 端口", "SSH port"));
         AutomationProperties.SetName(UserNameTextBox, T("SSH 账户", "SSH account"));
         AutomationProperties.SetName(PasswordInput, T("SSH 密码", "SSH password"));
+        RootPasswordLabelText.Text = T("root 密码（可选）", "Root password (optional)");
+        RootPasswordHintText.Text = T(
+            "仅当账户没有 sudo 权限时需要：工具会通过 su 临时授予 sudo，结束后自动撤销。密码不会保存或写入命令行。",
+            "Only needed when the account has no sudo: the tool uses su to grant temporary sudo and removes it afterwards. Never saved or put on a command line.");
+        AutomationProperties.SetName(RootPasswordInput, T("root 密码（可选）", "Root password (optional)"));
 
         SshPolicySectionTitleText.Text = T("SSH 登录策略", "SSH login policy");
         RootLoginLabelText.Text = T("允许 root 登录", "Allow root login");
@@ -774,6 +859,13 @@ public partial class MainWindow : Window
             "The configuration is backed up before writing and restored automatically if syntax or key-login verification fails.");
         AutomationProperties.SetName(AllowRootLoginCheckBox, T("允许 root 登录", "Allow root login"));
         AutomationProperties.SetName(AllowPasswordLoginCheckBox, T("允许密码登录", "Allow password login"));
+        ChangePortLabelText.Text = T("修改 SSH 端口", "Change SSH port");
+        ChangePortDescriptionText.Text = T(
+            "先放行防火墙 / SELinux 并验证新端口可登录，再关闭旧端口",
+            "Opens firewall / SELinux, verifies login on the new port, then closes the old one");
+        NewPortLabelText.Text = T("新端口（1–65535）", "New port (1–65535)");
+        AutomationProperties.SetName(ChangePortCheckBox, T("修改 SSH 端口", "Change SSH port"));
+        AutomationProperties.SetName(NewPortTextBox, T("新 SSH 端口", "New SSH port"));
 
         KeyFileSectionTitleText.Text = T("密钥文件", "Key files");
         KeyFileDescriptionText.Text = T(
@@ -807,7 +899,8 @@ public partial class MainWindow : Window
         AutomationProperties.SetName(OpenKeyFolderButton, T("打开密钥文件夹", "Open key folder"));
         AutomationProperties.SetName(CopyPublicKeyButton, T("复制公钥", "Copy public key"));
 
-        AboutSubtitleText.Text = T("Windows 到 Debian 的 SSH 密钥部署工具", "An SSH key deployment tool for Windows to Debian");
+        AboutSubtitleText.Text = T("Windows 到 Linux 服务器的 SSH 密钥部署工具", "An SSH key deployment tool from Windows to Linux servers");
+        FooterDistributionsText.Text = "Debian · Ubuntu · RHEL · Fedora · openSUSE · Arch · Alpine";
         AboutDescriptionText.Text = T(
             "生成 Ed25519 密钥，安装 authorized_keys，安全修改 sshd 配置并验证密钥登录。",
             "Generates Ed25519 keys, installs authorized_keys, safely manages sshd configuration, and verifies key login.");
@@ -863,7 +956,12 @@ public partial class MainWindow : Window
             .Replace("Host must be a valid DNS name or IP address without a URL scheme or port.", "服务器地址应为 IP 或域名，不要包含 ssh:// 或端口。", StringComparison.Ordinal)
             .Replace("Port must be a number between 1 and 65535.", "端口必须是 1 到 65535 之间的数字。", StringComparison.Ordinal)
             .Replace("Port must be between 1 and 65535.", "端口必须在 1 到 65535 之间。", StringComparison.Ordinal)
-            .Replace("Username must be a valid Debian account name (lowercase letters, digits, underscore, or hyphen; maximum 32 characters).", "账户必须是有效的 Debian 用户名。", StringComparison.Ordinal)
+            .Replace("Username must be a valid Linux account name (lowercase letters, digits, underscore, or hyphen; maximum 32 characters).", "账户必须是有效的 Linux 用户名（小写字母、数字、下划线或连字符，最多 32 个字符）。", StringComparison.Ordinal)
+            .Replace("Root password cannot contain line breaks or null characters.", "root 密码不能包含换行或空字符。", StringComparison.Ordinal)
+            .Replace("Root password cannot exceed 1024 characters.", "root 密码长度不能超过 1024 个字符。", StringComparison.Ordinal)
+            .Replace("New SSH port must be a number between 1 and 65535.", "新 SSH 端口必须是 1 到 65535 之间的数字。", StringComparison.Ordinal)
+            .Replace("New SSH port must be between 1 and 65535.", "新 SSH 端口必须在 1 到 65535 之间。", StringComparison.Ordinal)
+            .Replace("New SSH port must be different from the current port.", "新 SSH 端口不能与当前端口相同。", StringComparison.Ordinal)
             .Replace("Root login cannot be disabled when the deployment account is root.", "使用 root 账户部署时，必须开启 root 登录。", StringComparison.Ordinal)
             .Replace("A password is required for the initial SSH connection and sudo authentication.", "请输入当前 SSH 密码。", StringComparison.Ordinal)
             .Replace("Password cannot contain line breaks or null characters.", "密码不能包含换行或空字符。", StringComparison.Ordinal)
@@ -879,6 +977,8 @@ public partial class MainWindow : Window
             .Replace("Port:", "端口：", StringComparison.Ordinal)
             .Replace("Username:", "账户：", StringComparison.Ordinal)
             .Replace("EnableRootLogin:", "root 登录：", StringComparison.Ordinal)
+            .Replace("RootPassword:", "root 密码：", StringComparison.Ordinal)
+            .Replace("NewSshPort:", "新端口：", StringComparison.Ordinal)
             .Replace("Password:", "密码：", StringComparison.Ordinal)
             .Replace("KeyPath:", "私钥文件：", StringComparison.Ordinal);
         return new LocalizedText(chinese, message);
@@ -916,22 +1016,11 @@ public partial class MainWindow : Window
             };
         }
 
-        if (exception is SudoAccessException sudoException)
+        var chinese = DeploymentPresentation.DescribeFailure(exception, english: false);
+        var englishText = DeploymentPresentation.DescribeFailure(exception, english: true);
+        if (chinese is not null && englishText is not null)
         {
-            var username = sudoException.Username;
-            return sudoException.Reason switch
-            {
-                SudoAccessFailureReason.NotAuthorized => new LocalizedText(
-                    $"SSH 密码登录已经成功，但账户“{username}”没有 sudo 权限。能用 su 输入 root 密码，并不等于该账户拥有 sudo 权限。\n\n请在 root 终端执行：\nadduser {username} sudo\n\n然后完全退出“{username}”的所有会话，重新登录，运行 sudo -k true 验证后再试。",
-                    sudoException.Message),
-                SudoAccessFailureReason.CommandUnavailable => new LocalizedText(
-                    $"SSH 密码登录已经成功，但服务器没有安装 sudo。\n\n请在 root 终端执行：\napt-get update\napt-get install -y sudo\nadduser {username} sudo\n\n然后完全退出“{username}”的所有会话，重新登录后再试。",
-                    sudoException.Message),
-                SudoAccessFailureReason.AuthenticationRejected => new LocalizedText(
-                    $"SSH 密码登录已经成功，但 sudo 拒绝了账户“{username}”的密码。sudo 通常需要当前账户的密码，而不是 root 密码。\n\n请重新登录“{username}”，先运行 sudo -k true 验证，再回到本工具重试。",
-                    sudoException.Message),
-                _ => TranslateExceptionMessage(exception.Message)
-            };
+            return new LocalizedText(chinese, englishText);
         }
 
         return TranslateExceptionMessage(exception.Message);
@@ -943,7 +1032,11 @@ public partial class MainWindow : Window
         DeploymentStage.SecuringPrivateKey => new LocalizedText("正在加固并校验私钥", "Securing and validating the private key"),
         DeploymentStage.Connecting => new LocalizedText("正在使用密码连接服务器", "Connecting with password authentication"),
         DeploymentStage.AwaitingHostKeyApproval => new LocalizedText("等待确认服务器主机指纹", "Waiting for server host-key approval"),
-        DeploymentStage.CheckingPrivileges => new LocalizedText("正在检查 Debian、sshd 和 sudo 权限", "Checking Debian, sshd, and sudo access"),
+        DeploymentStage.InspectingServer => new LocalizedText("正在检测权限、Linux 发行版、防火墙和 SELinux", "Detecting privileges, Linux distribution, firewall, and SELinux"),
+        DeploymentStage.AwaitingPlanApproval => new LocalizedText("等待确认部署计划", "Waiting for deployment plan approval"),
+        DeploymentStage.PreparingPrivileges => new LocalizedText("正在安装所需软件包 / 通过 su 临时授予 sudo", "Installing required packages / granting temporary sudo through su"),
+        DeploymentStage.CheckingPrivileges => new LocalizedText("正在检查 sshd 和 root 权限", "Checking sshd and root access"),
+        DeploymentStage.ChangingPort => new LocalizedText("正在修改 SSH 端口（" + progress.Percent + "%）", "Changing the SSH port: " + progress.Message),
         DeploymentStage.InstallingPublicKey => progress.Percent >= 39
             ? new LocalizedText("正在改配置前验证当前账户的密钥登录", "Verifying current-account key login before configuration changes")
             : new LocalizedText("正在安装公钥", "Installing the public key"),

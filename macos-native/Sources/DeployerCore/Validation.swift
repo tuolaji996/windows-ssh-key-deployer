@@ -22,7 +22,7 @@ public enum RequestValidator {
         if !isValidUsername(request.username) {
             issues.append(.init(
                 field: .username,
-                message: "Username must be a valid Debian account name (lowercase letters, digits, underscore, or hyphen; maximum 32 characters)."))
+                message: "Username must be a valid Linux account name (lowercase letters, digits, underscore, or hyphen; maximum 32 characters)."))
         }
 
         if request.username == "root" && !request.enableRootLogin {
@@ -41,6 +41,26 @@ public enum RequestValidator {
                 message: "Password cannot contain line breaks or null characters."))
         } else if request.password.count > 1_024 {
             issues.append(.init(field: .password, message: "Password cannot exceed 1024 characters."))
+        }
+
+        if let rootPassword = request.rootPassword {
+            if rootPassword.unicodeScalars.contains(where: { $0 == "\r" || $0 == "\n" || $0 == "\0" }) {
+                issues.append(.init(
+                    field: .rootPassword,
+                    message: "Root password cannot contain line breaks or null characters."))
+            } else if rootPassword.count > 1_024 {
+                issues.append(.init(field: .rootPassword, message: "Root password cannot exceed 1024 characters."))
+            }
+        }
+
+        if let newPort = request.newSSHPort {
+            if !(1...65_535).contains(newPort) {
+                issues.append(.init(field: .newSSHPort, message: "New SSH port must be between 1 and 65535."))
+            } else if newPort == request.port {
+                issues.append(.init(
+                    field: .newSSHPort,
+                    message: "New SSH port must differ from the port used for this connection; leave it empty to keep the current port."))
+            }
         }
 
         issues.append(contentsOf: validateKeyPath(request.keyPath, requireExistingKey: requireExistingKey))

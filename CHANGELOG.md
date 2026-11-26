@@ -2,6 +2,26 @@
 
 本项目的重要变更记录在此。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### Added
+
+- 支持更多 Linux 发行版：Debian、Ubuntu、RHEL/Rocky/AlmaLinux、Fedora、openSUSE、Arch Linux、Alpine；CI 新增在这些发行版容器中真实部署的端到端测试矩阵。
+- 部署前检测服务器：先检测账户权限（root / sudo / su），再检测系统版本、包管理器、init 系统、防火墙、SELinux 与 ssh.socket，并展示变更计划，确认后才修改。
+- 账户没有 sudo 时，可填写 root 密码，通过 `su` 安装 `sudo`（apt、dnf、yum、zypper、pacman、apk）并授予临时 sudo 规则，结束或回滚时一定删除。
+- 两阶段修改 SSH 端口：放行防火墙（ufw/firewalld）与 SELinux 端口标签，在新端口验证密钥登录后再关闭旧端口，失败自动回滚。
+- 原生 macOS 版界面重做：双栏布局、单一登录策略选项与结果说明、逐字段即时校验、变更计划确认、结果卡片（ssh 命令与 `~/.ssh/config` 片段）、最近服务器列表，以及 CI 自动截图。
+- Windows 与跨平台 macOS 版同样支持服务器检测、su、自动安装与端口修改。
+
+### Changed
+
+- sudo 相关错误提示按发行版给出对应命令；服务器不加载 `sshd_config.d` 时在任何修改前停止并说明需要添加的 Include 行。
+- 远程脚本兼容 BusyBox（Alpine），密钥安装后执行 `restorecon`，sshd 重载支持 systemd、OpenRC、service 和信号回退。
+
+### Fixed
+
+- C# 版远程脚本同样修复了 `set -e` 下 `test A && test B` 检查失败不中止的问题。
+
 ## [1.3.0] - 2026-11-25
 
 ### Added
