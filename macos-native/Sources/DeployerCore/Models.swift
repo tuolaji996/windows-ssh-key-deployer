@@ -238,7 +238,7 @@ public struct DeploymentResult: Sendable {
 }
 
 public struct ValidationIssue: Sendable, Equatable {
-    public enum Field: Sendable { case host, port, username, password, keyPath, rootLogin }
+    public enum Field: Sendable { case host, port, username, password, keyPath, rootLogin, rootPassword, newSSHPort }
 
     public let field: Field
     public let message: String
