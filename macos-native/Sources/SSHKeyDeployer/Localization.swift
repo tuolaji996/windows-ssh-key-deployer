@@ -52,11 +52,11 @@ enum DeploymentStep: Int, CaseIterable, Identifiable {
         switch stage {
         case .validating, .securingPrivateKey: self = .localKey
         case .connecting, .awaitingHostKeyApproval: self = .hostKey
-        case .checkingPrivileges: self = .privileges
+        case .inspectingServer, .awaitingPlanApproval, .preparingPrivileges, .checkingPrivileges: self = .privileges
         case .installingPublicKey: self = .publicKey
         case .writingSshdConfiguration: self = .configuration
         case .validatingSshdConfiguration: self = .validation
-        case .reloadingSsh, .verifyingEffectiveConfiguration: self = .reload
+        case .reloadingSsh, .verifyingEffectiveConfiguration, .changingPort: self = .reload
         case .verifyingKeyLogin: self = .keyLogin
         case .rollingBack, .completed: return nil
         }
@@ -96,7 +96,8 @@ extension DeploymentError {
         case .sudoPasswordRejected:
             summary = LocalizedText("sudo 拒绝了密码：sudo 需要的是当前账号的密码，而不是 root 密码。",
                             "sudo rejected the password.")
-        case .validation, .key, .connectionFailed, .remote:
+        case .validation, .key, .connectionFailed, .remote, .unsupportedServer, .noPrivilege,
+             .rootPasswordRejected, .suUnavailable, .planRejected, .packageInstallFailed, .portChangeFailed:
             summary = nil
         }
 

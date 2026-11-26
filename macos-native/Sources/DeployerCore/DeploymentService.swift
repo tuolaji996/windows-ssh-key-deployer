@@ -12,6 +12,7 @@ public struct DeploymentService: Sendable {
     public func deploy(
         _ request: DeploymentRequest,
         approveHostKey: HostKeyApproval,
+        approvePlan: PlanApproval = { _ in true },
         progress: ProgressHandler? = nil
     ) async throws -> DeploymentResult {
         let report: (DeploymentStage, String, Int) -> Void = { stage, message, percent in
@@ -65,7 +66,9 @@ public struct DeploymentService: Sendable {
                 managedConfigPath: Self.managedConfigPath,
                 rootLoginPolicy: request.rootLoginPolicy,
                 passwordLoginAllowed: request.allowPasswordLogin,
-                warnings: warnings)
+                warnings: warnings,
+                server: nil,
+                sshPort: request.port)
         } catch {
             // Recovery must finish even if the user cancelled, so it runs detached
             // from this task's cancellation.
