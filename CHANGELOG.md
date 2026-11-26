@@ -2,7 +2,7 @@
 
 本项目的重要变更记录在此。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [1.3.0] - 2026-11-25
 
 ### Added
 
@@ -13,7 +13,13 @@
 
 ### Changed
 
+- CI 的 macOS 任务改用 `macos-15` 运行器（GitHub 已停用 `macos-14`，原 .NET macOS 任务无法启动）。
 - 原生版把检查与备份受管 sshd 配置的 5 次远程调用合并为 1 次，并移除未使用的公钥删除命令；authorized_keys 回滚脚本去除了重复分支。
+
+### Fixed
+
+- 远程脚本在 `set -e` 下，`test A && test B` 形式的检查失败时不会中止（例如已存在的备份可能被覆盖）；12 处检查改为失败即退出。
+- UID 为 0 但账号名不是 `root` 时，最后的 root 密钥登录验证会误判失败。
 
 ## [1.2.1] - 2026-09-08
 
@@ -37,5 +43,6 @@
 - `sshd` 配置检查、回滚和密钥回连验证。
 - `win-x64` 自包含单文件发布、SHA-256 校验文件与当前用户安装脚本。
 
+[1.3.0]: https://github.com/tuolaji996/windows-ssh-key-deployer/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/tuolaji996/windows-ssh-key-deployer/compare/v1.2.0...v1.2.1
 [1.0.0]: https://github.com/tuolaji996/windows-ssh-key-deployer/releases/tag/v1.0.0

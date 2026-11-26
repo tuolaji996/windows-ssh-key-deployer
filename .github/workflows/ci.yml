@@ -18,7 +18,7 @@ jobs:
   build-and-self-test:
     name: Windows build and self-test
     runs-on: windows-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
 
     env:
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
@@ -48,6 +48,23 @@ jobs:
       - name: Run console self-tests
         shell: pwsh
         run: dotnet run --project .\tests\SshKeyDeployer.SelfTest\SshKeyDeployer.SelfTest.csproj --configuration Release --no-build --no-restore
+
+      - name: Package Windows x64 release
+        shell: pwsh
+        run: |
+          $version = ([xml](Get-Content .\Directory.Build.props)).Project.PropertyGroup.VersionPrefix
+          if ([string]::IsNullOrWhiteSpace($version)) { throw 'VersionPrefix not found.' }
+          .\release.ps1 -Version $version
+
+      - name: Upload Windows release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64-release-assets
+          path: |
+            artifacts/SSH-Key-Deployer-v*-win-x64.zip
+            artifacts/SSH-Key-Deployer-v*-win-x64.zip.sha256
+          if-no-files-found: error
+          retention-days: 7
 
   macos-arm64-package:
     name: macOS Apple Silicon package

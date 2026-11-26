@@ -56,7 +56,7 @@ Get-FileHash .\SSH-Key-Deployer-*-win-x64.zip -Algorithm SHA256
 You can also install a selected release using the repository script:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Version 1.2.1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Version 1.3.0
 ```
 
 By default, the application is installed under `%LOCALAPPDATA%\Programs\SSH Key Deployer` and does not require administrator privileges.
@@ -144,7 +144,7 @@ Install the .NET 8 SDK. On Windows, use Windows PowerShell 5.1 or PowerShell 7:
 Create a self-contained, single-file `win-x64` package with:
 
 ```powershell
-.\release.ps1 -Version 1.2.1
+.\release.ps1 -Version 1.3.0
 ```
 
 The ZIP archive and checksum are written to `artifacts/`.
@@ -152,7 +152,7 @@ The ZIP archive and checksum are written to `artifacts/`.
 On macOS, build the native universal app with Xcode 15 or later (or the Command Line Tools). The script runs the unit tests first:
 
 ```bash
-./macos-native/package.sh 1.2.1
+./macos-native/package.sh 1.3.0
 ```
 
 During development you can run it directly with `swift run --package-path macos-native`, and run the tests with `swift test --package-path macos-native`.
@@ -160,7 +160,7 @@ During development you can run it directly with `swift run --package-path macos-
 Build the cross-platform, self-contained Apple Silicon `.app` package with:
 
 ```bash
-./scripts/package-macos.sh 1.2.1
+./scripts/package-macos.sh 1.3.0
 ```
 
 Both macOS ZIP files and their checksums are written to `artifacts/`.
@@ -214,7 +214,7 @@ Get-FileHash .\SSH-Key-Deployer-*-win-x64.zip -Algorithm SHA256
 也可以使用仓库中的脚本安装指定版本：
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Version 1.2.1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Version 1.3.0
 ```
 
 默认会安装到当前用户的 `%LOCALAPPDATA%\Programs\SSH Key Deployer`，不需要管理员权限。
@@ -302,7 +302,7 @@ Host debian-home
 生成自包含、单文件的 `win-x64` 发布包：
 
 ```powershell
-.\release.ps1 -Version 1.2.1
+.\release.ps1 -Version 1.3.0
 ```
 
 ZIP 包和哈希文件会输出到 `artifacts/`。
@@ -310,7 +310,7 @@ ZIP 包和哈希文件会输出到 `artifacts/`。
 在 macOS 上用 Xcode 15 及以上版本（或 Command Line Tools）构建原生通用版；脚本会先运行单元测试：
 
 ```bash
-./macos-native/package.sh 1.2.1
+./macos-native/package.sh 1.3.0
 ```
 
 开发时可以直接用 `swift run --package-path macos-native` 运行，用 `swift test --package-path macos-native` 运行测试。
@@ -318,7 +318,7 @@ ZIP 包和哈希文件会输出到 `artifacts/`。
 生成跨平台、自包含的 Apple Silicon `.app` 包：
 
 ```bash
-./scripts/package-macos.sh 1.2.1
+./scripts/package-macos.sh 1.3.0
 ```
 
 两个 macOS ZIP 包及哈希文件都会输出到 `artifacts/`。
