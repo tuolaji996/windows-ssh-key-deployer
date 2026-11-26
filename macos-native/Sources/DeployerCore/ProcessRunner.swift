@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(Glibc)
+import Glibc
+#endif
 
 public struct ProcessOutput: Sendable {
     public let status: Int32

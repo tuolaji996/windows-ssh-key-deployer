@@ -123,3 +123,53 @@ jobs:
             artifacts/SSH-Key-Deployer-v*-macos-universal.zip.sha256
           if-no-files-found: error
           retention-days: 7
+
+  linux-e2e:
+    name: Linux E2E (distro matrix)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { distro: debian-12, base: 'debian:12', sudo: '1' }
+          - { distro: debian-12-nosudo, base: 'debian:12', sudo: '0' }
+          - { distro: debian-13, base: 'debian:13', sudo: '1' }
+          - { distro: ubuntu-22.04, base: 'ubuntu:22.04', sudo: '1' }
+          - { distro: ubuntu-24.04, base: 'ubuntu:24.04', sudo: '1' }
+          - { distro: almalinux-9, base: 'almalinux:9', sudo: '1' }
+          - { distro: fedora, base: 'fedora:latest', sudo: '1' }
+          - { distro: opensuse-leap-15.6, base: 'opensuse/leap:15.6', sudo: '1' }
+          - { distro: archlinux, base: 'archlinux:latest', sudo: '1' }
+          - { distro: alpine, base: 'alpine:latest', sudo: '1' }
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Build deployer-e2e (Swift on Linux)
+        shell: bash
+        working-directory: macos-native
+        run: |
+          swift --version
+          swift build --product deployer-e2e
+          echo "DEPLOYER_CMD=$(swift build --show-bin-path)/deployer-e2e" >> "$GITHUB_ENV"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ${{ matrix.distro }} SSH server image
+        uses: docker/build-push-action@v6
+        with:
+          context: macos-native/e2e/image
+          build-args: |
+            BASE=${{ matrix.base }}
+            WITH_SUDO=${{ matrix.sudo }}
+          tags: sshkd-e2e:${{ matrix.distro }}
+          load: true
+          cache-from: type=gha,scope=e2e-${{ matrix.distro }}
+          cache-to: type=gha,mode=max,scope=e2e-${{ matrix.distro }}
+
+      - name: Run scenarios
+        shell: bash
+        run: macos-native/e2e/run.sh '${{ matrix.distro }}'

@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(Glibc)
+import Glibc
+#endif
 
 /// Creates and validates local Ed25519 key pairs with the system `ssh-keygen`.
 public struct KeyStore: Sendable {
