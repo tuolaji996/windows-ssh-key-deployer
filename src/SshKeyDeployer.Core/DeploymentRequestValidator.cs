@@ -30,7 +30,7 @@ public static partial class DeploymentRequestValidator
         {
             errors.Add(new ValidationError(
                 nameof(request.Username),
-                "Username must be a valid Debian account name (lowercase letters, digits, underscore, or hyphen; maximum 32 characters)."));
+                "Username must be a valid Linux account name (lowercase letters, digits, underscore, or hyphen; maximum 32 characters)."));
         }
 
         if (request.Username.Equals("root", StringComparison.Ordinal) && !request.EnableRootLogin)
@@ -57,6 +57,38 @@ public static partial class DeploymentRequestValidator
             errors.Add(new ValidationError(
                 nameof(request.Password),
                 "Password cannot exceed 1024 characters."));
+        }
+
+        if (request.RootPassword is not null)
+        {
+            if (request.RootPassword.IndexOfAny(['\r', '\n', '\0']) >= 0)
+            {
+                errors.Add(new ValidationError(
+                    nameof(request.RootPassword),
+                    "Root password cannot contain line breaks or null characters."));
+            }
+            else if (request.RootPassword.Length > 1_024)
+            {
+                errors.Add(new ValidationError(
+                    nameof(request.RootPassword),
+                    "Root password cannot exceed 1024 characters."));
+            }
+        }
+
+        if (request.NewSshPort is int newPort)
+        {
+            if (newPort is < 1 or > IPEndPoint.MaxPort)
+            {
+                errors.Add(new ValidationError(
+                    nameof(request.NewSshPort),
+                    "New SSH port must be between 1 and 65535."));
+            }
+            else if (newPort == request.Port)
+            {
+                errors.Add(new ValidationError(
+                    nameof(request.NewSshPort),
+                    "New SSH port must be different from the current port."));
+            }
         }
 
         ValidateKeyPath(request.KeyPath, requireExistingKey, errors);

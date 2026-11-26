@@ -13,7 +13,9 @@ public sealed class DeploymentRequest
         string password,
         string keyPath,
         bool enableRootLogin,
-        bool allowPasswordLogin)
+        bool allowPasswordLogin,
+        string? rootPassword = null,
+        int? newSshPort = null)
     {
         Host = NormalizeHost(host);
         Port = port;
@@ -22,6 +24,8 @@ public sealed class DeploymentRequest
         KeyPath = keyPath?.Trim() ?? string.Empty;
         EnableRootLogin = enableRootLogin;
         AllowPasswordLogin = allowPasswordLogin;
+        RootPassword = string.IsNullOrEmpty(rootPassword) ? null : rootPassword;
+        NewSshPort = newSshPort;
     }
 
     public string Host { get; }
@@ -40,8 +44,27 @@ public sealed class DeploymentRequest
 
     public bool AllowPasswordLogin { get; }
 
+    /// <summary>
+    /// Root password, used only with su when the account cannot use sudo. Never logged.
+    /// </summary>
+    [JsonIgnore]
+    [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+    public string? RootPassword { get; }
+
+    /// <summary>
+    /// Move sshd to this port (verified before the old port is closed); null keeps the current port.
+    /// </summary>
+    public int? NewSshPort { get; }
+
+    /// <summary>
+    /// The account whose key login is verified at the end of the deployment.
+    /// </summary>
+    public string TargetUsername => EnableRootLogin ? "root" : Username;
+
     public override string ToString() =>
-        $"{Username}@{Host}:{Port}, KeyPath={KeyPath}, Password=[redacted]";
+        $"{Username}@{Host}:{Port}, KeyPath={KeyPath}, Password=[redacted], " +
+        $"RootPassword={(RootPassword is null ? "none" : "[redacted]")}, " +
+        $"NewSshPort={(NewSshPort is int port ? port.ToString(System.Globalization.CultureInfo.InvariantCulture) : "unchanged")}";
 
     private static string NormalizeHost(string? host)
     {
@@ -74,12 +97,19 @@ public enum DeploymentStage
     SecuringPrivateKey,
     Connecting,
     AwaitingHostKeyApproval,
+    /// <summary>Detecting privileges, OS release, package manager, init system, firewall, SELinux.</summary>
+    InspectingServer,
+    AwaitingPlanApproval,
+    /// <summary>Installing missing packages and/or granting temporary sudo through su.</summary>
+    PreparingPrivileges,
     CheckingPrivileges,
     InstallingPublicKey,
     WritingSshdConfiguration,
     ValidatingSshdConfiguration,
     ReloadingSsh,
     VerifyingEffectiveConfiguration,
+    /// <summary>Opening the new port (firewall, SELinux), verifying it, then closing the old one.</summary>
+    ChangingPort,
     VerifyingKeyLogin,
     RollingBack,
     Completed
@@ -120,7 +150,9 @@ public sealed record DeploymentResult(
     string ManagedConfigPath,
     RootLoginPolicy RootLoginPolicy,
     bool PasswordLoginAllowed,
-    IReadOnlyList<string> Warnings);
+    IReadOnlyList<string> Warnings,
+    ServerInfo? Server,
+    int SshPort);
 
 public delegate Task<bool> HostKeyApprovalCallback(
     HostKeyInfo hostKey,
@@ -230,11 +262,21 @@ public sealed class SudoAccessException : DeploymentException
         string username,
         SudoAccessFailureReason reason,
         string serverDiagnostic)
-        : base(BuildMessage(username, reason))
+        : this(username, reason, serverDiagnostic, LinuxFamily.Debian)
+    {
+    }
+
+    public SudoAccessException(
+        string username,
+        SudoAccessFailureReason reason,
+        string serverDiagnostic,
+        LinuxFamily family)
+        : base(BuildMessage(username, reason, family))
     {
         Username = username;
         Reason = reason;
         ServerDiagnostic = serverDiagnostic;
+        Family = family;
     }
 
     public string Username { get; }
@@ -243,25 +285,153 @@ public sealed class SudoAccessException : DeploymentException
 
     public string ServerDiagnostic { get; }
 
+    public LinuxFamily Family { get; }
+
     private static string BuildMessage(
         string username,
-        SudoAccessFailureReason reason) => reason switch
+        SudoAccessFailureReason reason,
+        LinuxFamily family)
+    {
+        const string rootPasswordAlternative =
+            " Alternatively, enter the root password in the 'Root password' field: the tool then uses su to grant " +
+            "temporary sudo for this deployment and removes it afterwards.";
+        return reason switch
         {
             SudoAccessFailureReason.NotAuthorized =>
                 $"SSH password login succeeded, but account '{username}' is not authorized to use sudo. " +
                 "Using 'su' with the root password is different from having sudo permission. " +
-                $"From a root console, run: adduser {username} sudo. Then fully sign out of '{username}', " +
-                "sign in again, and retry.",
+                $"From a root console, run: {string.Join(" ; ", PrivilegeGuidance.GetSudoSetupCommands(family, username, sudoInstalled: true))}. " +
+                $"Then fully sign out of '{username}', sign in again, and retry." +
+                rootPasswordAlternative,
             SudoAccessFailureReason.CommandUnavailable =>
                 "SSH password login succeeded, but sudo is not installed on the server. " +
-                $"From a root console, run: apt-get update && apt-get install -y sudo && adduser {username} sudo. " +
-                $"Then fully sign out of '{username}', sign in again, and retry.",
+                $"From a root console, run: {string.Join(" ; ", PrivilegeGuidance.GetSudoSetupCommands(family, username, sudoInstalled: false))}. " +
+                $"Then fully sign out of '{username}', sign in again, and retry." +
+                rootPasswordAlternative,
             SudoAccessFailureReason.AuthenticationRejected =>
                 $"SSH password login succeeded, but sudo rejected the password for account '{username}'. " +
                 "sudo normally requires the current account password, not the root password. " +
-                "Verify 'sudo -k true' in a new login session and retry.",
+                "Verify 'sudo -k true' in a new login session and retry." +
+                rootPasswordAlternative,
             _ => throw new ArgumentOutOfRangeException(nameof(reason), reason, null)
         };
+    }
+}
+
+public enum PrivilegeFailureReason
+{
+    /// <summary>No sudo rights and no root password was given.</summary>
+    NoPrivilege,
+    /// <summary>su rejected the root password.</summary>
+    RootPasswordRejected,
+    /// <summary>su is missing or not permitted for this account.</summary>
+    SuUnavailable
+}
+
+public sealed class PrivilegeException : DeploymentException
+{
+    public PrivilegeException(
+        string username,
+        PrivilegeFailureReason reason,
+        LinuxFamily family,
+        string osName,
+        bool sudoInstalled,
+        string serverDiagnostic = "")
+        : base(BuildMessage(username, reason, family, osName, sudoInstalled))
+    {
+        Username = username;
+        Reason = reason;
+        Family = family;
+        OsName = osName;
+        SudoInstalled = sudoInstalled;
+        ServerDiagnostic = serverDiagnostic;
+    }
+
+    public string Username { get; }
+
+    public PrivilegeFailureReason Reason { get; }
+
+    public LinuxFamily Family { get; }
+
+    public string OsName { get; }
+
+    public bool SudoInstalled { get; }
+
+    public string ServerDiagnostic { get; }
+
+    private static string BuildMessage(
+        string username,
+        PrivilegeFailureReason reason,
+        LinuxFamily family,
+        string osName,
+        bool sudoInstalled) => reason switch
+        {
+            PrivilegeFailureReason.NoPrivilege =>
+                $"SSH password login succeeded on {osName}, but account '{username}' cannot run commands as root: " +
+                (sudoInstalled ? "it has no working sudo access" : "sudo is not installed") +
+                " and no root password was entered. Either enter the root password in the 'Root password' field " +
+                "(the tool then uses su to grant temporary sudo and removes it afterwards), or from a root console run: " +
+                $"{string.Join(" ; ", PrivilegeGuidance.GetSudoSetupCommands(family, username, sudoInstalled))}. " +
+                $"Then fully sign out of '{username}', sign in again, and retry. No server changes were made.",
+            PrivilegeFailureReason.RootPasswordRejected =>
+                "su rejected the root password. Enter the password of the root account (not the password of " +
+                $"'{username}') and retry. No server changes were made.",
+            PrivilegeFailureReason.SuUnavailable =>
+                $"su is not available or not permitted for account '{username}' on {osName}, so the root password " +
+                "cannot be used. Grant the account sudo from a root console instead: " +
+                $"{string.Join(" ; ", PrivilegeGuidance.GetSudoSetupCommands(family, username, sudoInstalled))}. " +
+                "No server changes were made.",
+            _ => throw new ArgumentOutOfRangeException(nameof(reason), reason, null)
+        };
+}
+
+public enum UnsupportedServerReason
+{
+    /// <summary>The main sshd_config does not load /etc/ssh/sshd_config.d/*.conf.</summary>
+    SshdConfigWithoutInclude,
+    /// <summary>/etc/sudoers does not include /etc/sudoers.d, so temporary sudo cannot be granted.</summary>
+    SudoersWithoutIncludeDir
+}
+
+public sealed class UnsupportedServerException : DeploymentException
+{
+    public const string RequiredSshdIncludeLine = "Include /etc/ssh/sshd_config.d/*.conf";
+    public const string RequiredSudoersIncludeLine = "@includedir /etc/sudoers.d";
+
+    public UnsupportedServerException(UnsupportedServerReason reason, string configPath)
+        : base(BuildMessage(reason, configPath))
+    {
+        Reason = reason;
+        ConfigPath = configPath;
+    }
+
+    public UnsupportedServerReason Reason { get; }
+
+    public string ConfigPath { get; }
+
+    public string RequiredLine => Reason == UnsupportedServerReason.SshdConfigWithoutInclude
+        ? RequiredSshdIncludeLine
+        : RequiredSudoersIncludeLine;
+
+    private static string BuildMessage(UnsupportedServerReason reason, string configPath) => reason switch
+    {
+        UnsupportedServerReason.SshdConfigWithoutInclude =>
+            $"{configPath} does not load /etc/ssh/sshd_config.d, so the managed SSH policy would be ignored. " +
+            $"Add this line at the top of {configPath} as root, check it with 'sshd -t', then retry: " +
+            $"{RequiredSshdIncludeLine}. The tool never edits the main sshd_config. No server changes were made.",
+        UnsupportedServerReason.SudoersWithoutIncludeDir =>
+            $"{configPath} does not include /etc/sudoers.d, so temporary sudo cannot be granted through su. " +
+            $"Add this line with 'visudo' as root, then retry: {RequiredSudoersIncludeLine}. No server changes were made.",
+        _ => throw new ArgumentOutOfRangeException(nameof(reason), reason, null)
+    };
+}
+
+public sealed class PlanRejectedException : DeploymentException
+{
+    public PlanRejectedException()
+        : base("The deployment plan was not approved. No server changes were made.")
+    {
+    }
 }
 
 public sealed class KeyGenerationException : Exception
