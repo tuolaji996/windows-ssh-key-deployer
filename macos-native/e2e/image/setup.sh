@@ -15,6 +15,9 @@ sudo_pkg=""
 case "$family" in
   *alpine*)
     apk add --no-cache openssh-server openssh-keygen bash $sudo_pkg >/dev/null
+    # The container image lacks a setuid su ("su: must be suid to work properly");
+    # a standard Alpine install has one.
+    apk add --no-cache busybox-suid >/dev/null 2>&1 || apk add --no-cache shadow-login >/dev/null
     admin_group=wheel
     ;;
   *debian*|*ubuntu*)

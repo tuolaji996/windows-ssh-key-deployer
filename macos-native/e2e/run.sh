@@ -5,21 +5,25 @@
 #   macos-native/e2e/run.sh DISTRO [SCENARIO...]
 #   macos-native/e2e/run.sh --list
 #
-# DISTRO is one of the names printed by --list. SCENARIO is any of a b c d e (default:
-# all scenarios that apply to the distribution):
+# DISTRO is one of the names printed by --list. SCENARIO is any of a b c d e f
+# (default: all scenarios that apply to the distribution):
 #   a  alice (sudo), root login key-only, password login off
 #   b  bob (no sudo) + root password via su; sudo is installed where missing
-#   c  alice moves sshd to a new port; the old port must be closed
+#   c  alice moves sshd from the stock port 22 to a new port; port 22 must be closed
 #   d  bob with a wrong root password: rootPasswordRejected, server unchanged
 #   e  sshd_config without the drop-in Include: unsupportedServer, server unchanged
+#   f  like c, but sshd_config has an explicit Port line: the deployer must succeed,
+#      warn, and leave both ports open
+#
+# Every container gets its own address on the default Docker bridge, so sshd keeps the
+# distribution's stock configuration (port 22, no Port line) and a new port is reachable
+# directly; containers never collide.
 #
 # Environment:
 #   DEPLOYER_CMD   command that takes the deployer-e2e flags (word-split; default: the
 #                  SwiftPM debug or release build of deployer-e2e). Any other client, for
 #                  example a C# console runner, can reuse these scenarios by accepting
 #                  the same flags, JSON output and exit codes.
-#   E2E_BASE_PORT  first port used for containers (default 2200); each scenario uses
-#                  its own ports, so containers never collide.
 #   E2E_IMAGE_PREFIX  image name prefix (default sshkd-e2e); images are built when missing.
 #   E2E_KEEP=1     keep containers after the run for debugging.
 set -uo pipefail
@@ -29,16 +33,16 @@ package_root="$(cd "$e2e_root/.." && pwd)"
 
 # name|base image|with sudo|default scenarios
 distros=(
-  "debian-12|debian:12|1|a b c d e"
+  "debian-12|debian:12|1|a b c d e f"
   "debian-12-nosudo|debian:12|0|b d"
-  "debian-13|debian:13|1|a b c d e"
-  "ubuntu-22.04|ubuntu:22.04|1|a b c d e"
-  "ubuntu-24.04|ubuntu:24.04|1|a b c d e"
-  "almalinux-9|almalinux:9|1|a b c d e"
-  "fedora|fedora:latest|1|a b c d e"
-  "opensuse-leap-15.6|opensuse/leap:15.6|1|a b c d e"
-  "archlinux|archlinux:latest|1|a b c d e"
-  "alpine|alpine:latest|1|a b c d e"
+  "debian-13|debian:13|1|a b c d e f"
+  "ubuntu-22.04|ubuntu:22.04|1|a b c d e f"
+  "ubuntu-24.04|ubuntu:24.04|1|a b c d e f"
+  "almalinux-9|almalinux:9|1|a b c d e f"
+  "fedora|fedora:latest|1|a b c d e f"
+  "opensuse-leap-15.6|opensuse/leap:15.6|1|a b c d e f"
+  "archlinux|archlinux:latest|1|a b c d e f"
+  "alpine|alpine:latest|1|a b c d e f"
 )
 
 if [[ "${1:-}" == "--list" ]]; then
@@ -46,7 +50,7 @@ if [[ "${1:-}" == "--list" ]]; then
   exit 0
 fi
 if [[ $# -lt 1 ]]; then
-  sed -n '2,25p' "$0" >&2
+  sed -n '2,/^set -uo/p' "$0" >&2
   exit 2
 fi
 
@@ -64,7 +68,7 @@ IFS='|' read -r _ base_image with_sudo default_scenarios <<<"$entry"
 if [[ $# -gt 0 ]]; then scenarios="$*"; else scenarios="$default_scenarios"; fi
 
 image="${E2E_IMAGE_PREFIX:-sshkd-e2e}:${distro}"
-base_port="${E2E_BASE_PORT:-2200}"
+host=""  # address of the current container, set by start_container
 
 if [[ -n "${DEPLOYER_CMD:-}" ]]; then
   read -r -a deployer <<<"$DEPLOYER_CMD"
@@ -134,20 +138,25 @@ ensure_image() {
 }
 
 # start_container NAME PORT [extra docker run args...]
+# PORT 22 keeps the stock sshd_config; any other port is written into it as "Port N".
+# Sets $host to the container's bridge address.
 start_container() {
   local name="$1" port="$2"
   shift 2
+  local port_env=()
+  [[ "$port" == 22 ]] || port_env=(-e "SSH_PORT=$port")
   docker rm -f "$name" >/dev/null 2>&1
-  docker run -d --name "$name" --network host \
-    -e "SSH_PORT=$port" \
+  docker run -d --name "$name" "${port_env[@]}" \
     -e "ALICE_PASSWORD=$alice_password" \
     -e "BOB_PASSWORD=$bob_password" \
     -e "ROOT_PASSWORD=$root_password" \
     "$@" "$image" >/dev/null || return 1
   containers+=("$name")
+  host="$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$name")"
+  [[ -n "$host" ]] || { log "no address for $name"; return 1; }
   local attempt
   for attempt in $(seq 1 60); do
-    if ssh-keyscan -T 2 -p "$port" 127.0.0.1 2>/dev/null | grep -q .; then
+    if ssh-keyscan -T 2 -p "$port" "$host" 2>/dev/null | grep -q .; then
       return 0
     fi
     if [[ "$(docker inspect -f '{{.State.Running}}' "$name" 2>/dev/null)" != true ]]; then
@@ -197,7 +206,7 @@ key_login_works() {
   output="$(SSH_AUTH_SOCK='' ssh "${ssh_common[@]}" -p "$2" -i "$3" \
     -o BatchMode=yes -o IdentitiesOnly=yes -o IdentityAgent=none \
     -o PreferredAuthentications=publickey \
-    "$1@127.0.0.1" 'id -un' </dev/null 2>&1)"
+    "$1@$host" 'id -un' </dev/null 2>&1)"
   [[ "$output" == "$1" ]] || { log "    key login as $1 on port $2 returned: $output"; return 1; }
 }
 
@@ -216,7 +225,7 @@ password_login_works() {
     -o PubkeyAuthentication=no -o IdentityAgent=none \
     -o PreferredAuthentications=password,keyboard-interactive \
     -o NumberOfPasswordPrompts=1 \
-    "$1@127.0.0.1" 'id -un' </dev/null 2>&1)"
+    "$1@$host" 'id -un' </dev/null 2>&1)"
   password_output="$output"
   [[ "$output" == "$1" ]]
 }
@@ -229,7 +238,7 @@ password_login_rejected() {
   [[ "$password_output" == *"Permission denied"* ]] || { log "    password login as $1 failed without an authentication refusal: $password_output"; return 1; }
 }
 
-port_closed() { ! timeout 5 bash -c "exec 3<>/dev/tcp/127.0.0.1/$1" 2>/dev/null; }
+port_closed() { ! timeout 5 bash -c "exec 3<>/dev/tcp/$host/$1" 2>/dev/null; }
 
 # Everything the deployer may touch, without timestamps (rollback may legitimately
 # touch a directory while restoring identical contents).
@@ -261,7 +270,7 @@ fingerprints_match_openssh() {
   algorithm="$(json "$prefix" '.hostKey.algorithm')"
   [[ -n "$algorithm" && "$algorithm" != null ]] || { log "    no host key in result"; return 1; }
   local scanned
-  scanned="$(ssh-keyscan -p "$port" 127.0.0.1 2>/dev/null | awk -v a="$algorithm" '$2 == a')"
+  scanned="$(ssh-keyscan -p "$port" "$host" 2>/dev/null | awk -v a="$algorithm" '$2 == a')"
   expected_sha="$(ssh-keygen -lf - -E sha256 <<<"$scanned" | awk '{print $2}')"
   expected_md5="$(ssh-keygen -lf - -E md5 <<<"$scanned" | awk '{print $2}')"
   [[ "$(json "$prefix" '.hostKey.sha256Fingerprint')" == "$expected_sha" ]] || { log "    host SHA-256 mismatch (OpenSSH: $expected_sha)"; ok=1; }
@@ -278,11 +287,11 @@ json_equals() { [[ "$(json "$1" "$2")" == "$3" ]] || { log "    $2 = $(json "$1"
 # --- scenarios -------------------------------------------------------------------
 
 scenario_a() {
-  local port=$((base_port + 10)) name="sshkd-e2e-$distro-a" dir="$work/a"
+  local port=22 name="sshkd-e2e-$distro-a" dir="$work/a"
   mkdir -p "$dir"
   start_container "$name" "$port" || return 1
   run_deployer "$dir/out" "$alice_password" "" \
-    --host 127.0.0.1 --port "$port" --user alice --key "$dir/key" \
+    --host "$host" --port "$port" --user alice --key "$dir/key" \
     --root-login key --password-login off
   check "deployer succeeded" test $? -eq 0
   check "result port is $port" json_equals "$dir/out" '.sshPort' "$port"
@@ -295,11 +304,11 @@ scenario_a() {
 }
 
 scenario_b() {
-  local port=$((base_port + 20)) name="sshkd-e2e-$distro-b" dir="$work/b"
+  local port=22 name="sshkd-e2e-$distro-b" dir="$work/b"
   mkdir -p "$dir"
   start_container "$name" "$port" || return 1
   run_deployer "$dir/out" "$bob_password" "$root_password" \
-    --host 127.0.0.1 --port "$port" --user bob --key "$dir/key" \
+    --host "$host" --port "$port" --user bob --key "$dir/key" \
     --root-login keypass --password-login on
   check "deployer succeeded" test $? -eq 0
   check "plan used su" json_equals "$dir/out" '.server.privilege' su
@@ -316,11 +325,11 @@ scenario_b() {
 }
 
 scenario_c() {
-  local port=$((base_port + 30)) new_port=$((base_port + 35)) name="sshkd-e2e-$distro-c" dir="$work/c"
+  local port=22 new_port=2235 name="sshkd-e2e-$distro-c" dir="$work/c"
   mkdir -p "$dir"
   start_container "$name" "$port" || return 1
   run_deployer "$dir/out" "$alice_password" "" \
-    --host 127.0.0.1 --port "$port" --user alice --key "$dir/key" \
+    --host "$host" --port "$port" --user alice --key "$dir/key" \
     --root-login off --password-login on --new-port "$new_port"
   check "deployer succeeded" test $? -eq 0
   check "result port is $new_port" json_equals "$dir/out" '.sshPort' "$new_port"
@@ -349,22 +358,49 @@ expect_unchanged_failure() {
 }
 
 scenario_d() {
-  local port=$((base_port + 40)) name="sshkd-e2e-$distro-d" dir="$work/d"
+  local port=22 name="sshkd-e2e-$distro-d" dir="$work/d"
   mkdir -p "$dir"
   start_container "$name" "$port" || return 1
   expect_unchanged_failure "$name" "$dir" rootPasswordRejected "$bob_password" "$wrong_root_password" \
-    --host 127.0.0.1 --port "$port" --user bob --key "$dir/key" \
+    --host "$host" --port "$port" --user bob --key "$dir/key" \
     --root-login off --password-login on
   check "password login still works for bob" password_login_works bob "$port"
 }
 
 scenario_e() {
-  local port=$((base_port + 50)) name="sshkd-e2e-$distro-e" dir="$work/e"
+  local port=22 name="sshkd-e2e-$distro-e" dir="$work/e"
   mkdir -p "$dir"
   start_container "$name" "$port" -e SSHD_NO_INCLUDE=1 || return 1
   expect_unchanged_failure "$name" "$dir" unsupportedServer "$alice_password" "" \
-    --host 127.0.0.1 --port "$port" --user alice --key "$dir/key" \
+    --host "$host" --port "$port" --user alice --key "$dir/key" \
     --root-login off --password-login on
+}
+
+scenario_f() {
+  local port=2222 new_port=2235 name="sshkd-e2e-$distro-f" dir="$work/f"
+  mkdir -p "$dir"
+  start_container "$name" "$port" || return 1
+  run_deployer "$dir/out" "$alice_password" "" \
+    --host "$host" --port "$port" --user alice --key "$dir/key" \
+    --root-login off --password-login on --new-port "$new_port"
+  check "deployer succeeded" test $? -eq 0
+  check "result port is $new_port" json_equals "$dir/out" '.sshPort' "$new_port"
+  check "warning about the Port line outside the managed file" \
+    bash -c "jq -e '.warnings | any(test(\"$port\"))' '$dir/out.json' >/dev/null"
+  check "key login as alice on new port $new_port" key_login_works alice "$new_port" "$dir/key"
+  check "key login as alice on old port $port (still configured)" key_login_works alice "$port" "$dir/key"
+}
+
+# Shown when a scenario fails: what sshd effectively uses and what was left behind.
+diagnostics() {
+  docker exec "$1" sh -c '
+    echo "--- sshd -T (selected)"
+    /usr/sbin/sshd -T 2>&1 | grep -Ei "^(port|pidfile|permitrootlogin|passwordauthentication|kbdinteractiveauthentication|include) " || true
+    echo "--- /etc/ssh/sshd_config.d"; ls -la /etc/ssh/sshd_config.d 2>&1
+    for f in /etc/ssh/sshd_config.d/*; do [ -f "$f" ] && { echo "--- $f"; cat "$f"; }; done
+    echo "--- /etc/sudoers.d"; ls -la /etc/sudoers.d 2>&1
+    echo "--- pid files"; ls -la /run/*.pid /var/run/*.pid 2>&1
+    echo "--- processes"; ps -ef 2>/dev/null || ps' 2>&1 | sed 's/^/      /'
 }
 
 # --- main --------------------------------------------------------------------------
@@ -388,7 +424,10 @@ for scenario in $scenarios; do
     results+=("$scenario FAIL")
     overall=1
     log "  container log (tail):"
-    docker logs "sshkd-e2e-$distro-$scenario" 2>&1 | tail -n 30 | sed 's/^/      /'
+    docker logs "sshkd-e2e-$distro-$scenario" 2>&1 | grep -v -e 'Connection closed by' -e 'Unable to negotiate' \
+      | tail -n 30 | sed 's/^/      /'
+    log "  server diagnostics:"
+    diagnostics "sshkd-e2e-$distro-$scenario"
   fi
   [[ "${E2E_KEEP:-0}" == 1 ]] || docker rm -f "sshkd-e2e-$distro-$scenario" >/dev/null 2>&1
 done
