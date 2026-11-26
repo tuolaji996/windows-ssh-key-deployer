@@ -1,5 +1,19 @@
 import Foundation
 
+/// Output of a command run with a remote terminal (see `SSHSession.runWithTerminal`).
+struct InteractiveOutput: Sendable {
+    let status: Int32
+    /// The start marker was seen: everything after it came from the script itself.
+    let started: Bool
+    let promptAnswered: Bool
+    /// Terminal output before the marker (prompt and su's own errors), redacted.
+    let beforeStart: String
+    /// Terminal output after the marker, redacted.
+    let afterStart: String
+    /// The local ssh client's stderr, redacted.
+    let stderr: String
+}
+
 struct RemoteResult: Sendable {
     let status: Int32
     let stdout: String
@@ -32,6 +46,8 @@ final class SSHSession: @unchecked Sendable {
     let port: Int
     let username: String
     private let password: String
+    /// Only typed into `su`'s terminal prompt; kept here so diagnostics can be redacted.
+    private let rootPassword: String?
     private let workDirectory: URL
     private var hostKey: ScannedHostKey?
     private var masterStarted = false
@@ -40,11 +56,12 @@ final class SSHSession: @unchecked Sendable {
     private var controlPath: String { workDirectory.appendingPathComponent("ctl").path }
     private var askpassPath: String { workDirectory.appendingPathComponent("askpass").path }
 
-    init(host: String, port: Int, username: String, password: String) throws {
+    init(host: String, port: Int, username: String, password: String, rootPassword: String? = nil) throws {
         self.host = host
         self.port = port
         self.username = username
         self.password = password
+        self.rootPassword = rootPassword
 
         // A short path under /tmp keeps the control socket within the 104-byte
         // sun_path limit; mkdtemp creates the directory with mode 0700.
@@ -172,6 +189,50 @@ final class SSHSession: @unchecked Sendable {
             stderr: Self.limit(output.stderr))
     }
 
+    /// Runs `command` with a remote terminal (`ssh -tt`) over the master connection and
+    /// types `secret` once, after a password prompt appears and before `startMarker`.
+    /// The terminal merges remote stdout and stderr; carriage returns are removed.
+    func runWithTerminal(
+        _ command: String,
+        secret: String,
+        startMarker: String,
+        timeout: TimeInterval
+    ) async throws -> InteractiveOutput {
+        guard masterStarted, let hostKey else {
+            throw DeploymentError(.remote, "The SSH connection is not open.")
+        }
+        let options = baseOptions(hostKey: hostKey) + [
+            "-o", "ControlMaster=no",
+            "-o", "ControlPath=\(controlPath)",
+            "-o", "BatchMode=yes",
+            "-o", "PubkeyAuthentication=no",
+            "-o", "PasswordAuthentication=no",
+            "-o", "KbdInteractiveAuthentication=no",
+            "-o", "HostbasedAuthentication=no",
+            "-o", "GSSAPIAuthentication=no",
+            "-tt",
+        ]
+        let output = try await InteractiveProcess.run(
+            Self.sshPath,
+            options + ["-l", username, "--", host, command],
+            secret: secret,
+            startMarker: startMarker,
+            timeout: timeout)
+        if output.timedOut {
+            throw DeploymentError(.remote, "The remote command timed out.")
+        }
+        if output.status == 255 && !output.started {
+            throw DeploymentError(.remote, "The SSH connection was lost: \(redact(Self.limit(output.stderr)))")
+        }
+        return InteractiveOutput(
+            status: output.status,
+            started: output.started,
+            promptAnswered: output.promptAnswered,
+            beforeStart: redact(Self.limit(output.beforeStart)),
+            afterStart: redact(Self.limit(output.afterStart)),
+            stderr: redact(Self.limit(output.stderr)))
+    }
+
     func close() async {
         guard masterStarted, let hostKey else { return }
         masterStarted = false
@@ -184,7 +245,7 @@ final class SSHSession: @unchecked Sendable {
     // MARK: - Key login verification
 
     /// Opens an independent connection with only `privateKeyPath` and returns `id -un`.
-    func verifyKeyLogin(as account: String, privateKeyPath: String) async throws -> String {
+    func verifyKeyLogin(as account: String, privateKeyPath: String, port: Int? = nil) async throws -> String {
         guard let hostKey else {
             throw DeploymentError(.hostKeyRejected, "The server host key has not been approved.")
         }
@@ -192,7 +253,7 @@ final class SSHSession: @unchecked Sendable {
         environment.removeValue(forKey: "SSH_AUTH_SOCK")
         environment.removeValue(forKey: "SSH_ASKPASS")
 
-        let options = baseOptions(hostKey: hostKey) + [
+        let options = baseOptions(hostKey: hostKey, port: port ?? self.port) + [
             "-o", "ControlMaster=no",
             "-o", "ControlPath=none",
             "-o", "BatchMode=yes",
@@ -219,7 +280,7 @@ final class SSHSession: @unchecked Sendable {
             let detail = output.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
             throw DeploymentError(
                 .remote,
-                "Key authentication as \(account) could not be verified." + (detail.isEmpty ? "" : " \(detail)"))
+                "Key authentication as \(account) on port \(port ?? self.port) could not be verified." + (detail.isEmpty ? "" : " \(detail)"))
         }
         return output.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -227,15 +288,25 @@ final class SSHSession: @unchecked Sendable {
     // MARK: - Helpers
 
     func redact(_ text: String) -> String {
-        password.isEmpty ? text : text.replacingOccurrences(of: password, with: "[redacted]")
+        Self.redact(text, secrets: [password, rootPassword ?? ""])
+    }
+
+    /// Replaces every secret (longest first, so one cannot leave part of another).
+    static func redact(_ text: String, secrets: [String]) -> String {
+        var result = text
+        for secret in secrets.filter({ !$0.isEmpty }).sorted(by: { $0.count > $1.count }) {
+            result = result.replacingOccurrences(of: secret, with: "[redacted]")
+        }
+        return result
     }
 
     /// Options shared by every connection: no user configuration, a private
     /// known_hosts file and strict checking against the single approved key.
-    private func baseOptions(hostKey: ScannedHostKey) -> [String] {
+    /// `HostKeyAlias` keeps the approved key pinned whichever port is used.
+    private func baseOptions(hostKey: ScannedHostKey, port: Int? = nil) -> [String] {
         [
             "-F", "/dev/null",
-            "-p", String(port),
+            "-p", String(port ?? self.port),
             "-o", "HostKeyAlias=\(Self.hostAlias)",
             "-o", "UserKnownHostsFile=\(knownHostsPath)",
             "-o", "GlobalKnownHostsFile=/dev/null",
@@ -298,7 +369,7 @@ final class SSHSession: @unchecked Sendable {
         }
     }
 
-    private static func limit(_ value: String) -> String {
+    static func limit(_ value: String) -> String {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.count <= maximumOutputLength ? trimmed : String(trimmed.prefix(maximumOutputLength)) + "..."
     }
