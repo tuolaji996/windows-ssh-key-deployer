@@ -141,7 +141,7 @@
                         </Grid.RowDefinitions>
 
                         <TextBlock x:Name="DeployLeadText" Grid.Row="0"
-                                   Text="输入 Debian 服务器信息，生成独立 Ed25519 密钥并完成安装、配置校验和回连验证。"
+                                   Text="输入 Linux 服务器信息，生成独立 Ed25519 密钥并完成安装、配置校验和回连验证。"
                                    Style="{StaticResource PageLeadStyle}" Margin="0,0,0,16" />
 
                         <Grid Grid.Row="1">
@@ -156,6 +156,7 @@
                                     CornerRadius="6" Padding="18">
                                 <Grid>
                                     <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />
@@ -193,6 +194,14 @@
                                                          AutomationProperties.Name="SSH 密码" />
                                         </StackPanel>
                                     </Grid>
+                                    <StackPanel Grid.Row="3" Margin="0,14,0,0">
+                                        <TextBlock x:Name="RootPasswordLabelText" Text="root 密码（可选）" Style="{StaticResource FieldLabelStyle}" />
+                                        <PasswordBox x:Name="RootPasswordInput"
+                                                     AutomationProperties.Name="root 密码（可选）" />
+                                        <TextBlock x:Name="RootPasswordHintText"
+                                                   Text="仅当账户没有 sudo 权限时需要：工具会通过 su 临时授予 sudo，结束后自动撤销。"
+                                                   Style="{StaticResource PageLeadStyle}" FontSize="11" LineHeight="16" Margin="0,5,0,0" />
+                                    </StackPanel>
                                 </Grid>
                             </Border>
 
@@ -202,6 +211,8 @@
                                 <Grid>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="1" />
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="1" />
                                         <RowDefinition Height="Auto" />
@@ -225,7 +236,7 @@
 
                                     <Border Grid.Row="2" Background="{DynamicResource BorderBrush}" />
 
-                                    <Grid Grid.Row="3" Margin="0,13,0,0">
+                                    <Grid Grid.Row="3" Margin="0,13,0,13">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
@@ -239,7 +250,33 @@
                                                   AutomationProperties.Name="允许密码登录" />
                                     </Grid>
 
-                                    <Border Grid.Row="4" Margin="0,13,0,0" Padding="10"
+                                    <Border Grid.Row="4" Background="{DynamicResource BorderBrush}" />
+
+                                    <Grid Grid.Row="5" Margin="0,13,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <StackPanel Margin="0,0,14,0">
+                                            <TextBlock x:Name="ChangePortLabelText" Text="修改 SSH 端口" FontSize="13" FontWeight="SemiBold" />
+                                            <TextBlock x:Name="ChangePortDescriptionText" Text="先验证新端口可用，再关闭旧端口" Style="{StaticResource PageLeadStyle}" FontSize="11" />
+                                        </StackPanel>
+                                        <CheckBox x:Name="ChangePortCheckBox" Grid.Column="1"
+                                                  IsChecked="False" Style="{StaticResource SwitchStyle}"
+                                                  Checked="ChangePortCheckBox_Changed" Unchecked="ChangePortCheckBox_Changed"
+                                                  AutomationProperties.Name="修改 SSH 端口" />
+                                        <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Margin="0,8,0,0">
+                                            <TextBlock x:Name="NewPortLabelText" Text="新端口（1–65535）" Style="{StaticResource FieldLabelStyle}" />
+                                            <TextBox x:Name="NewPortTextBox" Width="120" HorizontalAlignment="Left"
+                                                     IsEnabled="False" AutomationProperties.Name="新 SSH 端口" />
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <Border Grid.Row="6" Margin="0,13,0,0" Padding="10"
                                             CornerRadius="5" Background="{DynamicResource WarningSurfaceBrush}">
                                         <TextBlock x:Name="PolicyWarningText" Text="配置写入前会备份；语法或回连验证失败时自动恢复。"
                                                    Foreground="{DynamicResource WarningBrush}"
@@ -427,7 +464,7 @@
                                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                                 CornerRadius="6" Padding="18">
                             <StackPanel>
-                                <TextBlock x:Name="AboutSubtitleText" Text="Windows 到 Debian 的 SSH 密钥部署工具" Style="{StaticResource SectionTitleStyle}" />
+                                <TextBlock x:Name="AboutSubtitleText" Text="Windows 到 Linux 服务器的 SSH 密钥部署工具" Style="{StaticResource SectionTitleStyle}" />
                                 <TextBlock x:Name="AboutDescriptionText" Text="生成 Ed25519 密钥，安装 authorized_keys，安全修改 sshd 配置并验证密钥登录。"
                                            Style="{StaticResource PageLeadStyle}" Margin="0,6,0,16" />
                                 <TextBlock x:Name="AboutVersionText" Text="版本 1.3.0 · 开源软件" Foreground="{DynamicResource MutedTextBrush}" FontSize="12" />
@@ -461,7 +498,8 @@
                     <TextBlock x:Name="FooterStatusText" Grid.Column="1" Text="密码不会保存到磁盘"
                                Foreground="{DynamicResource MutedTextBrush}" FontSize="11"
                                Margin="8,0,0,0" VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="2" Text="Debian 12 / 13" Foreground="{DynamicResource SubtleTextBrush}"
+                    <TextBlock x:Name="FooterDistributionsText" Grid.Column="2" Text="Debian · Ubuntu · RHEL · Fedora · openSUSE · Arch · Alpine"
+                               Foreground="{DynamicResource SubtleTextBrush}"
                                FontSize="11" VerticalAlignment="Center" />
                     <TextBlock Grid.Column="3" Margin="16,0,0,0" FontSize="11"
                                Foreground="{DynamicResource MutedTextBrush}" VerticalAlignment="Center">
