@@ -201,6 +201,7 @@ key_login_works() {
   [[ "$output" == "$1" ]] || { log "    key login as $1 on port $2 returned: $output"; return 1; }
 }
 
+password_output=""
 # password_login_works USER PORT : logs in with the user's correct password.
 password_login_works() {
   local askpass="$work/askpass"
@@ -216,9 +217,17 @@ password_login_works() {
     -o PreferredAuthentications=password,keyboard-interactive \
     -o NumberOfPasswordPrompts=1 \
     "$1@127.0.0.1" 'id -un' </dev/null 2>&1)"
+  password_output="$output"
   [[ "$output" == "$1" ]]
 }
-password_login_rejected() { ! password_login_works "$@"; }
+# Rejected means the server answered and refused authentication, not a network error.
+password_login_rejected() {
+  if password_login_works "$@"; then
+    log "    password login as $1 on port $2 succeeded"
+    return 1
+  fi
+  [[ "$password_output" == *"Permission denied"* ]] || { log "    password login as $1 failed without an authentication refusal: $password_output"; return 1; }
+}
 
 port_closed() { ! timeout 5 bash -c "exec 3<>/dev/tcp/127.0.0.1/$1" 2>/dev/null; }
 

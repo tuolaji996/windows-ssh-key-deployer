@@ -30,6 +30,12 @@ fi
 sed -i '/^[[:space:]]*[Pp][Oo][Rr][Tt][[:space:]]/d' "$config"
 sed -i "1i Port ${SSH_PORT}" "$config"
 
+# OpenSSH 9.8+ penalises a source address after failed logins; the harness logs in
+# from 127.0.0.1 many times and deliberately tries rejected password logins.
+if /usr/sbin/sshd -T 2>/dev/null | grep -qi '^persourcepenalties'; then
+  sed -i '1i PerSourcePenalties no' "$config"
+fi
+
 if [ "${SSHD_NO_INCLUDE:-0}" = 1 ]; then
   sed -i '/^[[:space:]]*[Ii][Nn][Cc][Ll][Uu][Dd][Ee][[:space:]]/d' "$config"
 fi
