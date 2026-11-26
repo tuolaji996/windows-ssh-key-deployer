@@ -69,12 +69,10 @@ enum SnapshotRenderer {
         let contentSize = size ?? hosting.fittingSize
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: contentSize),
-            styleMask: [.titled, .fullSizeContentView],
+            styleMask: [.titled],
             backing: .buffered,
             defer: false)
         window.appearance = appearance
-        window.titlebarAppearsTransparent = true
-        window.titleVisibility = .hidden
         window.contentView = hosting
         hosting.frame = NSRect(origin: .zero, size: contentSize)
 
@@ -155,7 +153,17 @@ enum Samples {
     }
 
     static func emptyModel() -> DeployerViewModel {
-        base()
+        let model = base()
+        model.setRecentServers([
+            RecentServer(host: "203.0.113.10", port: 2222, username: "deploy", keyPath: keyPath,
+                         lastUsed: Date().addingTimeInterval(-3 * 3600)),
+            RecentServer(host: "db1.example.com", port: 22, username: "admin",
+                         keyPath: NSHomeDirectory() + "/.ssh/db servers/id_ed25519",
+                         lastUsed: Date().addingTimeInterval(-2 * 86_400)),
+            RecentServer(host: "2001:db8::25", port: 22, username: "root", keyPath: keyPath,
+                         lastUsed: Date().addingTimeInterval(-9 * 86_400)),
+        ])
+        return model
     }
 
     static func invalidModel() -> DeployerViewModel {

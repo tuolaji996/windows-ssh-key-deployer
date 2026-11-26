@@ -19,6 +19,9 @@ struct ProgressColumn: View {
                     FailureCard(failure: failure)
                 }
                 StepTimeline()
+                if model.phase == .idle && !model.recentServers.isEmpty {
+                    RecentServersCard()
+                }
                 LogCard()
             }
             .padding(16)
@@ -191,6 +194,61 @@ private struct TimelineRow: View {
     }
 }
 
+// MARK: - Recent servers
+
+private struct RecentServersCard: View {
+    @EnvironmentObject private var model: DeployerViewModel
+    @Environment(\.appLanguage) private var language
+
+    private func relative(_ date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.locale = Locale(identifier: language == .chinese ? "zh-Hans" : "en")
+        formatter.unitsStyle = .full
+        return formatter.localizedString(for: date, relativeTo: Date())
+    }
+
+    var body: some View {
+        Card(title: language.t("最近的服务器", "Recent servers"), systemImage: "clock.arrow.circlepath") {
+            Text(language.t("不保存密码", "Passwords are never saved"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        } content: {
+            VStack(spacing: 0) {
+                ForEach(Array(model.recentServers.enumerated()), id: \.element.id) { index, server in
+                    if index > 0 { Divider() }
+                    HStack(spacing: 10) {
+                        Image(systemName: "server.rack")
+                            .foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(server.title)
+                                .font(.body.weight(.medium))
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                            Text("\(SSHSnippets.abbreviated(server.keyPath)) · \(relative(server.lastUsed))")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        }
+                        Spacer(minLength: 8)
+                        Button(language.t("填入", "Use")) { model.fill(from: server) }
+                            .controlSize(.small)
+                        Button {
+                            model.removeRecent(server)
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                        }
+                        .buttonStyle(.borderless)
+                        .foregroundStyle(.tertiary)
+                        .help(language.t("从列表中移除", "Remove from the list"))
+                    }
+                    .padding(.vertical, 7)
+                }
+            }
+        }
+    }
+}
+
 // MARK: - Log
 
 private struct LogCard: View {
@@ -237,7 +295,7 @@ private struct LogCard: View {
                         .font(.system(.caption, design: .monospaced))
                         .padding(10)
                     }
-                    .frame(height: 200)
+                    .frame(height: 240)
                     .background(Palette.inset, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
                     .onChange(of: model.log.count) { _ in
                         if let last = model.log.last { proxy.scrollTo(last.id, anchor: .bottom) }
@@ -289,6 +347,7 @@ struct ResultCard: View {
             Text(value)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }
@@ -307,6 +366,7 @@ struct FailureCard: View {
                 if let hint = failure.hint {
                     Text(hint(language))
                         .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 if !failure.detail.isEmpty {
                     Text(failure.detail)

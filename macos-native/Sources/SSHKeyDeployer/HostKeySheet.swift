@@ -60,9 +60,10 @@ struct HostKeySheet: View {
         GridRow {
             Text(label).foregroundStyle(.secondary)
             Text(value)
-                .font(.system(emphasized ? .body : .callout, design: .monospaced).weight(emphasized ? .semibold : .regular))
+                .font(.system(.callout, design: .monospaced).weight(emphasized ? .semibold : .regular))
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }

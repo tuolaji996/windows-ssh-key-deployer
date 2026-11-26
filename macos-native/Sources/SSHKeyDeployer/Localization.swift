@@ -235,8 +235,8 @@ extension PlannedAction {
             return .init("把公钥加入 \(account) 的 authorized_keys", "Add the public key to \(account)'s authorized_keys")
         case let .writeSshdPolicy(rootLogin, passwordLogin):
             let root = PolicyText.rootPolicy(rootLogin)
-            return .init("写入 SSH 策略：root 登录「\(root.chinese)」，密码登录\(passwordLogin ? "开启" : "关闭")",
-                         "Write the SSH policy: root login \(root.english.lowercased()), password login \(passwordLogin ? "on" : "off")")
+            return .init("写入 SSH 策略：root 登录“\(root.chinese)”，密码登录\(passwordLogin ? "开启" : "关闭")",
+                         "Write the SSH policy: root login \(root.english.lowercased()); password login \(passwordLogin ? "on" : "off")")
         case let .changePort(from, to):
             let old = from.map(String.init).joined(separator: ", ")
             return .init("把 SSH 端口从 \(old.isEmpty ? "22" : old) 改为 \(to)（新端口验证通过后才关闭旧端口）",

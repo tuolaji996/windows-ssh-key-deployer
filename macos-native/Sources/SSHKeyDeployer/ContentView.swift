@@ -322,7 +322,10 @@ struct FormColumn: View {
                     .controlSize(.large)
             } else {
                 let problems = model.allIssues.count
-                if problems > 0 {
+                if problems == 1, model.allIssues[.password] != nil, model.password.isEmpty {
+                    Label(t("输入密码即可开始部署", "Enter the password to deploy"), systemImage: "lock")
+                        .foregroundStyle(.secondary)
+                } else if problems > 0 {
                     Label(t("还有 \(problems) 处需要填写或修正", "\(problems) field\(problems == 1 ? "" : "s") to complete or fix"),
                           systemImage: "exclamationmark.circle")
                         .foregroundStyle(.secondary)

@@ -105,6 +105,7 @@ struct PlanSheet: View {
                 .foregroundStyle(warn ? Palette.danger : Color.primary)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }
