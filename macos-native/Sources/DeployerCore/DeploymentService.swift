@@ -300,8 +300,19 @@ private final class Deployment: @unchecked Sendable {
             asRoot: root)
     }
 
+    /// sshd re-executes asynchronously after a reload, so a fresh listener can refuse
+    /// connections for a moment; transient failures are retried with a short backoff.
     private func verifyKeyLogin(as account: String, port: Int? = nil) async throws {
-        let identity = try await session.verifyKeyLogin(as: account, privateKeyPath: privateKeyPath, port: port)
+        var identity = ""
+        let delays: [UInt64] = [500, 1_000, 1_500, 2_000, 3_000]
+        for attempt in 0...delays.count {
+            do {
+                identity = try await session.verifyKeyLogin(as: account, privateKeyPath: privateKeyPath, port: port)
+                break
+            } catch let error as DeploymentError where error.kind != .hostKeyChanged && attempt < delays.count {
+                try await Task.sleep(nanoseconds: delays[attempt] * 1_000_000)
+            }
+        }
         guard identity == account else {
             throw DeploymentError(.remote, "Key authentication connected as an unexpected account.")
         }

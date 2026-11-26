@@ -50,6 +50,15 @@ internal static class RemoteScripts
                 esac
             fi
         done
+        # Some sshd builds (e.g. openSUSE in -D mode) write no pid file: signal the
+        # listener, which is the oldest process named exactly sshd.
+        if command -v pgrep >/dev/null 2>&1; then
+            pid=$(pgrep -o -x sshd || true)
+            case "$pid" in
+                '' | *[!0-9]*) ;;
+                *) kill -HUP "$pid" && exit 0 ;;
+            esac
+        fi
         echo 'No supported way to reload sshd was found (systemd, OpenRC, service, or sshd.pid).' >&2
         exit 1
         """;
