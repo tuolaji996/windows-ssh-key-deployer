@@ -326,7 +326,7 @@ struct ResultCard: View {
                         : language.t("\(result.sshPort)（原 \(result.previousPort)）", "\(result.sshPort) (was \(result.previousPort))"))
                     row(language.t("登录账号", "Account"), result.username)
                     row(language.t("登录策略", "Policy"),
-                        PolicyText.summary(root: result.rootLogin, passwordLogin: result.passwordLogin, account: result.username)(language))
+                        PolicyText.summary(root: result.rootLogin, passwordLogin: result.passwordLogin, account: result.username, prefixed: false)(language))
                 }
                 CopyableBlock(title: language.t("连接命令", "Connect"), text: result.sshCommand,
                               copyLabel: language.t("复制", "Copy"), copiedLabel: language.t("已复制", "Copied"),

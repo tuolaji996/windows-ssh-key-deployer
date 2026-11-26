@@ -115,7 +115,7 @@ enum RootLoginChoice: String, CaseIterable, Identifiable {
 
 enum PolicyText {
     /// "After deployment: …" in plain language.
-    static func summary(root: RootLoginChoice, passwordLogin: Bool, account: String) -> LocalizedText {
+    static func summary(root: RootLoginChoice, passwordLogin: Bool, account: String, prefixed: Bool = true) -> LocalizedText {
         let rootPart: LocalizedText
         switch root {
         case .disabled: rootPart = .init("root 不能通过 SSH 登录", "root cannot log in over SSH")
@@ -125,8 +125,9 @@ enum PolicyText {
         let passwordPart: LocalizedText = passwordLogin
             ? .init("其他账号仍可使用密码登录", "other accounts can still use their passwords")
             : .init("所有账号都关闭密码登录", "password login is off for everyone")
-        var chinese = "部署后：\(rootPart.chinese)；\(passwordPart.chinese)。"
-        var english = "After deployment: \(rootPart.english); \(passwordPart.english)."
+        var chinese = (prefixed ? "部署后：" : "") + "\(rootPart.chinese)；\(passwordPart.chinese)。"
+        let sentence = "\(rootPart.english); \(passwordPart.english)."
+        var english = prefixed ? "After deployment: " + sentence : sentence.prefix(1).uppercased() + sentence.dropFirst()
         let name = account.trimmingCharacters(in: .whitespaces)
         if root == .disabled, !name.isEmpty, name != "root" {
             chinese += "\(name) 使用这把密钥登录。"

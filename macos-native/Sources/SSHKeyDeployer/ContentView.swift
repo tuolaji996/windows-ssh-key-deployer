@@ -302,11 +302,11 @@ struct FormColumn: View {
             Text(t("仅用于你拥有或获准管理的 Linux 服务器。如果主机指纹与独立渠道核实的不一致，请取消部署。",
                    "Use only on Linux servers you own or are authorized to manage. Cancel if the host fingerprint doesn't match an independent check."))
                 .fixedSize(horizontal: false, vertical: true)
+                .foregroundStyle(.secondary)
             Link(t("GitHub 项目主页", "Project on GitHub"),
                  destination: URL(string: "https://github.com/tuolaji996/windows-ssh-key-deployer")!)
         }
         .font(.caption)
-        .foregroundStyle(.secondary)
         .padding(.horizontal, 4)
     }
 
