@@ -39,3 +39,7 @@ known_hosts*
 # Local publish output
 publish/
 out/
+
+# Swift Package Manager (macos-native)
+.build/
+.swiftpm/

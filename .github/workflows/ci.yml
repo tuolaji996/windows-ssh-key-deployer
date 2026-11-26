@@ -51,7 +51,7 @@ jobs:
 
   macos-arm64-package:
     name: macOS Apple Silicon package
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 20
 
     env:
@@ -81,5 +81,28 @@ jobs:
           path: |
             artifacts/SSH-Key-Deployer-v*-osx-arm64.zip
             artifacts/SSH-Key-Deployer-v*-osx-arm64.zip.sha256
+          if-no-files-found: error
+          retention-days: 7
+
+  macos-native-package:
+    name: Native macOS (SwiftUI) universal package
+    runs-on: macos-15
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Test, build and package the SwiftUI app
+        shell: bash
+        run: ./macos-native/package.sh
+
+      - name: Upload native macOS release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-native-universal-release-assets
+          path: |
+            artifacts/SSH-Key-Deployer-v*-macos-universal.zip
+            artifacts/SSH-Key-Deployer-v*-macos-universal.zip.sha256
           if-no-files-found: error
           retention-days: 7
